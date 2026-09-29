@@ -10,7 +10,7 @@ Users upload their course material (slides, exams). The system processes it once
 
 ```
 INGESTION (once per file, incremental)
- notes/ (originals, never modified)
+ apunts/ (inbox) + testing/apunts_testing/ (manually labelled set); originals never modified
    1. REGISTER   file hash = document ID; skip if already processed           → data/manifest.sqlite
    1b. DETECT    metadata (subject, doc_type, professor, year) from folder hint > title slides + filename (LLM),
                  with confidence; low confidence → ask the user to confirm            (D18, from week 4)
@@ -37,7 +37,7 @@ adds an upload UI that feeds the same pipeline, and an optional vision enrichmen
 | D2 | Qdrant in Docker | Filtering inside the query; multi-tenant pattern (payload index on `user_id`); hybrid search | Chroma (weaker multi-tenancy), pgvector (more SQL work now) |
 | D3 | Local multilingual embeddings (bge-m3) | Slides mix Catalan/Spanish/English; cross-lingual retrieval; free and private | English-only models; paid embedding APIs |
 | D4 | `LLMClient` interface: **Ollama (local) first**, Claude API later via config | Free while developing; switching is a config line; the eval measures the quality gain | Coupling code to one provider |
-| D5 | Metadata: university/degree from user profile in config; subject + doc_type from path `notes/<subject>/<doc_type>/` (until D18, then an optional hint); professor/year from `sources.yaml`; one Pydantic model | Simple for the user; upload form and auto-detection fill the same model | Metadata in code; deep folder trees |
+| D5 | Metadata: university/degree from user profile in config; subject + doc_type from path `<root>/<subject>/<doc_type>/` (until D18, then an optional hint); professor/year from `sources.yaml`; one Pydantic model | Simple for the user; upload form and auto-detection fill the same model | Metadata in code; deep folder trees |
 | D6 | Deterministic chunk IDs | Re-ingest is idempotent (no duplicates) | Random UUIDs |
 | D7 | `user_id` passed explicitly everywhere | Multi-user later only changes where the value comes from | Global constant |
 | D8 | Evaluation from week 4 (hit@k, MRR, faithfulness, abstention) | Proves improvements with numbers | "Looks good" manual testing |
@@ -49,7 +49,7 @@ adds an upload UI that feeds the same pipeline, and an optional vision enrichmen
 | D14 | Images: phase 1 text + thumbnail + "mostly image" flag; phase 2 optional vision-model description, config-toggled and measured | Diagrams hold knowledge, but vision is slow/costly: measure first | OCR only (reads words, not diagrams); ignoring images |
 | D15 | PyMuPDF for extraction (AGPL, fine for open source) | Fast, per-page text, renders thumbnails for the demo | pypdf (weaker); Docling kept as fallback if layout order is bad |
 | D16 | Language detected per slide, stored as metadata | Enables per-language analysis; verifies cross-lingual retrieval | Assuming one language per document |
-| D17 | Course material never leaves the machine: `.gitignore` + pre-commit hook block PDFs/Office files, `notes/`, `data/` | Professors' slides and exams are copyrighted; the repo is public | Relying on `.gitignore` alone (`git add -f` bypasses it) |
+| D17 | Course material never leaves the machine: `.gitignore` + pre-commit hook block PDFs/Office files, `apunts/`, `testing/`, `data/` | Professors' slides and exams are copyrighted; the repo is public | Relying on `.gitignore` alone (`git add -f` bypasses it) |
 | D18 | Automatic metadata detection: folder name (if any) wins; otherwise LLM reads title slides + filename and returns fields + confidence; low confidence → user confirms. Phase 2: folder watcher + upload UI use the same detector. Manually organised subjects are the ground truth to measure its accuracy | Users just drop PDFs; accuracy is measurable (e.g. "subject correct in 94% of documents"); built after the pipeline works so failures are attributable | Mandatory manual folders forever (bad UX); auto-detection from day 1 (no LLM yet, no way to measure it) |
 
 ## Grounding ("answer only from the notes")

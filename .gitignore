@@ -1,6 +1,8 @@
 # --- Private data: NEVER commit ---
-notes/*
-!notes/README.md
+apunts/*
+!apunts/README.md
+testing/*
+!testing/README.md
 data/
 *.sqlite
 qdrant_storage/

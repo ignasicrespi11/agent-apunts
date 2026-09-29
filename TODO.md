@@ -10,9 +10,9 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - [x] Open questions answered: slide PDFs (text+images, ca/es/en), Ollama first → Claude API later, material is copyrighted
 - [x] Data pipeline decisions D11–D17 → `docs/ARCHITECTURE.md`; pre-commit hook blocking course material
 - [ ] **Next:** Devcontainer + `docker-compose.yml` (app + Qdrant)
-- [ ] `pyproject.toml` with uv, empty package (name to decide, e.g. `apunts`), pytest running
+- [ ] `pyproject.toml` with uv, package `agent_apunts`, pytest running
 - [ ] `config/settings.yaml` + `config/sources.yaml` + `config.py` loader + `DocumentMetadata` model + tests
-- [ ] (Ignasi, no AI) Copy 2–3 subjects of slide PDFs into `notes/<subject>/<doc_type>/` (lowercase, no accents/spaces)
+- [x] (Ignasi) Labelled set: 3 subjects, 110 PDFs in `testing/apunts_testing/<subject>/<doc_type>/`
 - [x] Setup scripts for Windows + Omarchy (`docs/SETUP.md`)
 - [ ] (Ignasi) Windows: `wsl --install --no-distribution` (admin) + reboot so Docker Desktop works; Omarchy: run `scripts/setup-omarchy.sh`
 - [ ] Learn: reading Python (modules, imports, type hints, dataclasses/Pydantic, pytest)
@@ -32,7 +32,7 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - [ ] Agent design session (Opus): tools `search_notes`, `list_subjects`, `get_document`
 - [ ] Agent implementation + tests
 - [ ] FastAPI + Streamlit UI, including upload feeding the same pipeline; show cited slide thumbnails
-- [ ] Folder watcher on `notes/` (auto-ingest new PDFs); confirm-metadata step for low-confidence detections
+- [ ] Folder watcher on `apunts/` (auto-ingest new PDFs); confirm-metadata step for low-confidence detections
 - [ ] Query/response logging with user_id; faithfulness eval (LLM judge)
 - 🛑 23 Dec – 29 Jan: Christmas + exams
 
@@ -56,3 +56,4 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - 2026-09-29: Accepted data pipeline design (D11–D17), Ollama-first LLM, copyright safeguards (gitignore + pre-commit hook).
 - 2026-09-29: Added idempotent setup scripts (Windows/Omarchy) + docs/SETUP.md. Docker blocked on this PC: WSL2 missing.
 - 2026-09-29: D18 accepted: automatic metadata detection (week 4), folder watcher + upload (phase 2).
+- 2026-09-29: Renamed notes/ → apunts/ (inbox) + testing/apunts_testing/ (labelled set, 110 PDFs, 3 subjects). Package name: agent_apunts. Corpus analysed: see Next.

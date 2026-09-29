@@ -58,7 +58,7 @@ uv run --python 3.12 --no-project python --version
 
 Step "Local config"
 if (-not (Test-Path "$Dir\.env")) { Copy-Item "$Dir\.env.example" "$Dir\.env"; Write-Host "  Created .env (fill it in later)" }
-New-Item -ItemType Directory -Force "$Dir\notes" | Out-Null
+New-Item -ItemType Directory -Force "$Dir\apunts", "$Dir\testing\apunts_testing" | Out-Null
 
 Step "Docker"
 if (Get-Command docker -ErrorAction SilentlyContinue) {
@@ -69,4 +69,4 @@ if (Get-Command docker -ErrorAction SilentlyContinue) {
 
 Step "Done"
 Write-Host "  Open the project: code `"$Dir`"  (VS Code will offer 'Reopen in Container' once the devcontainer exists)"
-Write-Host "  Copy your PDFs into $Dir\notes\<subject>\<doc_type>\ (they are never committed)"
+Write-Host "  Copy your PDFs into $Dir\apunts\ (labelled set: $Dir\testing\apunts_testing\<subject>\<doc_type>\) (they are never committed)"

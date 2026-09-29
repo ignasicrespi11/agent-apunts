@@ -54,11 +54,11 @@ uv run --python 3.12 --no-project python --version
 
 step "Local config"
 [[ -f "$DIR/.env" ]] || { cp "$DIR/.env.example" "$DIR/.env"; echo "  Created .env (fill it in later)"; }
-mkdir -p "$DIR/notes"
+mkdir -p "$DIR/apunts" "$DIR/testing/apunts_testing"
 
 step "Docker check"
 if docker info >/dev/null 2>&1; then echo "  Docker is running"; else warn "Docker not usable yet (log out/in for the group change)."; fi
 
 step "Done"
 echo "  Open the project: code \"$DIR\"  (VS Code will offer 'Reopen in Container' once the devcontainer exists)"
-echo "  Copy your PDFs into $DIR/notes/<subject>/<doc_type>/ (they are never committed)"
+echo "  Copy your PDFs into $DIR/apunts/ (labelled set: $DIR/testing/apunts_testing/<subject>/<doc_type>/) (they are never committed)"

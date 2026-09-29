@@ -28,4 +28,4 @@ Python 3.12 · uv · Qdrant · sentence-transformers · Claude API · Typer · F
 - Distributed deployment
 
 ## Privacy
-Course notes are never committed (`notes/` is gitignored). The public demo uses a separate demo corpus.
+Course notes are never committed (`apunts/` and `testing/` are gitignored). The public demo uses a separate demo corpus.

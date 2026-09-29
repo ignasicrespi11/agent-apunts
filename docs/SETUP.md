@@ -38,5 +38,5 @@ Already cloned: `bash scripts/setup-omarchy.sh`
 | A new tool is "not recognized" right after installing | Open a new terminal (PATH is only refreshed in new sessions). |
 
 ## After setup
-- Copy PDFs into `notes/<subject>/<doc_type>/`, e.g. `notes/sistemes-operatius/theory/tema1.pdf`. They are never committed.
+- Real PDFs go in `apunts/`; the manually labelled set in `testing/apunts_testing/<subject>/<doc_type>/`. Neither is ever committed.
 - Start a Claude Code session in the repo folder, choose Sonnet, run `/start-session`.

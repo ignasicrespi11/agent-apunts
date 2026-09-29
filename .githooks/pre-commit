@@ -2,8 +2,8 @@
 # Blocks committing course material (copyrighted slides/exams) or processed data.
 # Enable once per clone: git config core.hooksPath .githooks
 blocked=$(git diff --cached --name-only --diff-filter=ACR \
-  | grep -E '^(notes/|data/)|\.(pdf|pptx?|docx?)$' \
-  | grep -vE '^notes/README\.md$|^tests/fixtures/')
+  | grep -E '^(apunts/|testing/|data/)|\.(pdf|pptx?|docx?)$' \
+  | grep -vE '^(apunts|testing)/README\.md$|^tests/fixtures/')
 if [ -n "$blocked" ]; then
   echo "pre-commit: refusing to commit course material:" >&2
   echo "$blocked" >&2

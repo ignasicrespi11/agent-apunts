@@ -37,8 +37,8 @@ No LangChain/LlamaIndex. The RAG pipeline is hand-written so every line can be d
 Full rationale: `docs/ARCHITECTURE.md`.
 
 ## Layout
-- `src/notes_agent/`: code (ingestion/loaders, chunking, embeddings, store, retrieval, llm, rag, agent, cli)
-- `config/`: settings.yaml, sources.yaml · `notes/<subject>/<doc_type>/`: raw PDFs · `data/`: processed outputs (both **gitignored, never commit**)
+- `src/agent_apunts/`: code (ingestion/loaders, chunking, embeddings, store, retrieval, llm, rag, agent, cli)
+- `config/`: settings.yaml, sources.yaml · `apunts/`: real PDFs (inbox) · `testing/apunts_testing/<subject>/<doc_type>/`: manually labelled PDFs (dev corpus + ground truth) · `data/`: processed outputs (both **gitignored, never commit**)
 - `eval/`: golden set + eval scripts · `tests/`: pytest · `docs/`: architecture, weekly summaries
 
 ## Commands
