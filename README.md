@@ -1,4 +1,4 @@
-# notes-agent
+# agent-apunts
 
 An AI agent that answers questions about your university subjects **grounded in, and citing, your own course notes**.
 It uses retrieval-augmented generation (RAG) over a vector database.

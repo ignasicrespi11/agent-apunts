@@ -1,4 +1,4 @@
-# CLAUDE.md — notes-agent
+# CLAUDE.md — agent-apunts
 
 Loaded at the start of every session. Keep it short: every line costs quota.
 
