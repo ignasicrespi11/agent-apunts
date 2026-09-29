@@ -24,21 +24,24 @@ Built for one user first, and designed to later scale to other degrees, universi
 - Ingestion is modular: one loader per file format, registered by extension.
 - Chunk IDs are deterministic (hash of user_id + path + index + content), so re-ingesting is idempotent.
 - The embedding model used for ingestion and for queries must be the same. It's stored in config and in the collection metadata.
+- Pipeline is staged and incremental (register → extract → clean → chunk → index); intermediate outputs in `data/`. Queries never read PDFs.
+- Chunk unit = one slide, with a contextual header. Answers only from retrieved notes, with citations; abstain if nothing relevant.
+- **Course material is copyrighted: never commit PDFs, processed text, thumbnails or `data/`.** Test fixtures must be self-generated.
 - Out of scope (roadmap only): authentication, billing/quotas, distributed deployment.
 
 ## Stack
-Python 3.12 · uv · Qdrant (Docker) · local multilingual embeddings (bge-m3 / multilingual-e5) ·
-Claude API behind an `LLMClient` interface · Typer CLI → FastAPI + Streamlit (phase 2) · pytest.
+Python 3.12 · uv · Qdrant (Docker) · PyMuPDF · local multilingual embeddings (bge-m3) ·
+`LLMClient` interface (Ollama local now → Claude API later) · Typer CLI → FastAPI + Streamlit (phase 2) · pytest.
 No LangChain/LlamaIndex. The RAG pipeline is hand-written so every line can be defended in interviews.
 Full rationale: `docs/ARCHITECTURE.md`.
 
 ## Layout
 - `src/notes_agent/`: code (ingestion/loaders, chunking, embeddings, store, retrieval, llm, rag, agent, cli)
-- `config/`: settings.yaml, sources.yaml · `notes/`: raw notes (**gitignored, never commit**)
+- `config/`: settings.yaml, sources.yaml · `notes/<subject>/<doc_type>/`: raw PDFs · `data/`: processed outputs (both **gitignored, never commit**)
 - `eval/`: golden set + eval scripts · `tests/`: pytest · `docs/`: architecture, weekly summaries
 
 ## Commands
-(Filled in as they are created.)
+- Once per clone: `git config core.hooksPath .githooks` (blocks committing course material)
 
 ## Session workflow (quota-efficient)
 - Start: read this file + `TODO.md` only. Don't scan the whole repo unless the task needs it.

@@ -35,3 +35,11 @@ Thumbs.db
 
 # --- Claude Code local (personal) settings ---
 .claude/settings.local.json
+
+# --- Course material is copyrighted: never commit it, wherever it is ---
+*.pdf
+*.ppt
+*.pptx
+*.doc
+*.docx
+!tests/fixtures/**
