@@ -6,8 +6,9 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - 110 PDFs, 2,087 pages. No encrypted/broken files.
 - Two kinds of PDF: **landscape slides** (disseny_software theory, median ~330 chars/page) and **portrait A4 documents**
   (all of arquitectura_computadors, IS exams/exercises: median 1,800–4,000 chars/page).
-  → D13 ("1 slide = 1 chunk") only fits slides. **Pending decision:** layout-aware chunking (see chat 2026-09-29).
-- 2 exact duplicates (same hash) and many near-duplicates (ES/EN translations, statement vs solutions, book with/without solutions).
+  → D13 revised: layout-aware chunking (accepted).
+- Exact duplicates: access_control_system fixed (kept in labs). **IS2425-Midterm1 = IS2425-Parcial1 still both present** (Ignasi to delete one).
+- Many near-duplicates (ES/EN translations, statement vs solutions, book with/without solutions) → D19 (phase 2).
 - Image-heavy: ~16% of disseny_software pages have <80 chars (D14 relevant there).
 
 ## Now — Week 1: foundations
@@ -36,6 +37,7 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - [ ] Eval baseline (hit@k, MRR, abstention) on 30–50 questions
 - [ ] Claude API LLMClient; compare vs Ollama on the eval
 - [ ] Vision enrichment for image-heavy slides (D14), measured
+- [ ] Near-duplicate grouping + collapse results by `group_id` (D19)
 - [ ] Hybrid search (dense + sparse) and reranking; measure the delta
 - [ ] Agent design session (Opus): tools `search_notes`, `list_subjects`, `get_document`
 - [ ] Agent implementation + tests
@@ -64,4 +66,5 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - 2026-09-29: Accepted data pipeline design (D11–D17), Ollama-first LLM, copyright safeguards (gitignore + pre-commit hook).
 - 2026-09-29: Added idempotent setup scripts (Windows/Omarchy) + docs/SETUP.md. Docker blocked on this PC: WSL2 missing.
 - 2026-09-29: D18 accepted: automatic metadata detection (week 4), folder watcher + upload (phase 2).
-- 2026-09-29: Renamed notes/ → apunts/ (inbox) + testing/apunts_testing/ (labelled set, 110 PDFs, 3 subjects). Package name: agent_apunts. Corpus analysed: see Next.
+- 2026-09-29: Renamed notes/ → apunts/ (inbox) + testing/apunts_testing/ (labelled set, 110 PDFs, 3 subjects). Package name: agent_apunts. Corpus analysed: see Corpus findings.
+- 2026-09-29: Local folder renamed to agent-apunts. D13 revised (layout-aware chunking) and D19 (near-duplicate grouping) accepted.
