@@ -5,8 +5,8 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 ## Now — Week 1: foundations
 - [x] Architecture proposal (Opus) → `docs/ARCHITECTURE.md`
 - [x] CLAUDE.md, TODO.md, README, .gitignore, .gitattributes, Claude Code project settings
-- [ ] Install toolchain on Windows (git, gh, uv, VS Code, Docker Desktop) and on Omarchy
-- [ ] `git init`, first commit, create GitHub repo, push
+- [x] Install toolchain on Windows (git, gh, uv, VS Code) — Docker Desktop + Omarchy pending
+- [x] `git init`, first commit, public repo github.com/ignasicrespi11/notes-agent
 - [ ] Answer open questions: note formats/languages/volume, answer LLM (Claude API vs Ollama), rights over material
 - [ ] Devcontainer + `docker-compose.yml` (app + Qdrant)
 - [ ] `pyproject.toml` with uv, empty package `src/notes_agent/`, pytest running
@@ -44,3 +44,4 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 
 ## Session log
 - 2026-09-29: Architecture proposed (Opus). Repo scaffold: CLAUDE.md, TODO.md, docs, Claude settings.
+- 2026-09-29: Toolchain installed on Windows; repo pushed to GitHub (public), topics + main branch protection (no force-push/delete).
