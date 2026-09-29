@@ -1,0 +1,37 @@
+# --- Private data: NEVER commit ---
+notes/*
+!notes/README.md
+data/
+*.sqlite
+qdrant_storage/
+logs/
+
+# --- Secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+
+# --- Models / caches ---
+.cache/
+models/
+
+# --- Editors / OS ---
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Claude Code local (personal) settings ---
+.claude/settings.local.json

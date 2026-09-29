@@ -1,0 +1,13 @@
+# Store text files with LF in the repo, so Windows and Arch behave the same.
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+
+# Binary
+*.pdf binary
+*.png binary
+*.jpg binary
+*.docx binary
+*.pptx binary
