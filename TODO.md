@@ -21,7 +21,7 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 ## Phase 1 — First version (to 25 Oct)
 - [ ] W2 (6–12 Oct): manifest (content-hash doc IDs) + PDF extractor (PyMuPDF: title, text, language, thumbnail, image flag) → `data/processed/*.json`; `inspect` command; tests
 - [ ] W3 (13–19 Oct): boilerplate cleaning + slide chunking with contextual header; embeddings (bge-m3), Qdrant collection + payload indexes (user_id as tenant, subject), idempotent ingest, filtered search; `ingest` / `search` CLI
-- [ ] W4 (20–25 Oct): LLMClient + Ollama implementation (Windows GPU), grounded `ask` with citations + abstention, 20 golden questions (ca/es/en), hit@k script
+- [ ] W4 (20–25 Oct): LLMClient + Ollama implementation (Windows GPU), grounded `ask` with citations + abstention, 20 golden questions (ca/es/en), hit@k script; metadata auto-detection (D18) + accuracy vs manually organised subjects
 - 🛑 26–30 Oct: exams
 
 ## Phase 2 — Agent, interface, retrieval (2 Nov – 22 Dec)
@@ -32,6 +32,7 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - [ ] Agent design session (Opus): tools `search_notes`, `list_subjects`, `get_document`
 - [ ] Agent implementation + tests
 - [ ] FastAPI + Streamlit UI, including upload feeding the same pipeline; show cited slide thumbnails
+- [ ] Folder watcher on `notes/` (auto-ingest new PDFs); confirm-metadata step for low-confidence detections
 - [ ] Query/response logging with user_id; faithfulness eval (LLM judge)
 - 🛑 23 Dec – 29 Jan: Christmas + exams
 
@@ -54,3 +55,4 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - 2026-09-29: Repo renamed notes-agent → agent-apunts (Python package name still to decide).
 - 2026-09-29: Accepted data pipeline design (D11–D17), Ollama-first LLM, copyright safeguards (gitignore + pre-commit hook).
 - 2026-09-29: Added idempotent setup scripts (Windows/Omarchy) + docs/SETUP.md. Docker blocked on this PC: WSL2 missing.
+- 2026-09-29: D18 accepted: automatic metadata detection (week 4), folder watcher + upload (phase 2).

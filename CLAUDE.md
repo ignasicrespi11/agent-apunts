@@ -25,6 +25,7 @@ Built for one user first, and designed to later scale to other degrees, universi
 - Chunk IDs are deterministic (hash of user_id + path + index + content), so re-ingesting is idempotent.
 - The embedding model used for ingestion and for queries must be the same. It's stored in config and in the collection metadata.
 - Pipeline is staged and incremental (register → extract → clean → chunk → index); intermediate outputs in `data/`. Queries never read PDFs.
+- Metadata auto-detection (D18, week 4+): folder name wins if present; manual folders are the ground truth to measure it.
 - Chunk unit = one slide, with a contextual header. Answers only from retrieved notes, with citations; abstain if nothing relevant.
 - **Course material is copyrighted: never commit PDFs, processed text, thumbnails or `data/`.** Test fixtures must be self-generated.
 - Out of scope (roadmap only): authentication, billing/quotas, distributed deployment.
