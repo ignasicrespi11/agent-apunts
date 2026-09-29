@@ -13,7 +13,8 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - [ ] `pyproject.toml` with uv, empty package (name to decide, e.g. `apunts`), pytest running
 - [ ] `config/settings.yaml` + `config/sources.yaml` + `config.py` loader + `DocumentMetadata` model + tests
 - [ ] (Ignasi, no AI) Copy 2–3 subjects of slide PDFs into `notes/<subject>/<doc_type>/` (lowercase, no accents/spaces)
-- [ ] (Ignasi) Install Docker Desktop on Windows; docker on Omarchy; clone repo on Omarchy + `git config core.hooksPath .githooks`
+- [x] Setup scripts for Windows + Omarchy (`docs/SETUP.md`)
+- [ ] (Ignasi) Windows: `wsl --install --no-distribution` (admin) + reboot so Docker Desktop works; Omarchy: run `scripts/setup-omarchy.sh`
 - [ ] Learn: reading Python (modules, imports, type hints, dataclasses/Pydantic, pytest)
 - [ ] Sunday: `docs/weekly/week-01.md`
 
@@ -52,3 +53,4 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - 2026-09-29: Toolchain installed on Windows; repo pushed to GitHub (public), topics + main branch protection (no force-push/delete).
 - 2026-09-29: Repo renamed notes-agent → agent-apunts (Python package name still to decide).
 - 2026-09-29: Accepted data pipeline design (D11–D17), Ollama-first LLM, copyright safeguards (gitignore + pre-commit hook).
+- 2026-09-29: Added idempotent setup scripts (Windows/Omarchy) + docs/SETUP.md. Docker blocked on this PC: WSL2 missing.

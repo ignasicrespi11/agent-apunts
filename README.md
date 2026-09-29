@@ -12,6 +12,9 @@ It uses retrieval-augmented generation (RAG) over a vector database.
 - Evaluation harness (retrieval hit@k, answer faithfulness)
 - Agent with tools, CLI and web UI
 
+## Setup
+Windows 11 and Omarchy (Arch Linux): see [docs/SETUP.md](docs/SETUP.md).
+
 ## Architecture
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 

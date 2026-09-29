@@ -41,7 +41,7 @@ Full rationale: `docs/ARCHITECTURE.md`.
 - `eval/`: golden set + eval scripts · `tests/`: pytest · `docs/`: architecture, weekly summaries
 
 ## Commands
-- Once per clone: `git config core.hooksPath .githooks` (blocks committing course material)
+- New machine: `scripts/setup-windows.ps1` or `scripts/setup-omarchy.sh` (see `docs/SETUP.md`); they also enable the pre-commit hook
 
 ## Session workflow (quota-efficient)
 - Start: read this file + `TODO.md` only. Don't scan the whole repo unless the task needs it.
