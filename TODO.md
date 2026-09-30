@@ -29,6 +29,8 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - [x] Setup scripts for Windows + Omarchy (`docs/SETUP.md`)
 - [x] (Ignasi) Windows: WSL2 + Docker Desktop working
 - [ ] (Ignasi) Omarchy: run `scripts/setup-omarchy.sh`
+- [ ] (Ignasi) Other Windows PCs, when needed: `scripts/setup-windows.ps1` (needs admin for WSL2); no admin → GitHub Codespaces
+- [ ] PDFs are not in git: other machines get them via OneDrive; input folders configurable in `.env` (e.g. `APUNTS_DIR`, `TESTING_DIR`)
 - [ ] Learn: reading Python (modules, imports, type hints, dataclasses/Pydantic, pytest)
 - [ ] Sunday: `docs/weekly/week-01.md`
 
