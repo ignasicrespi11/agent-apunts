@@ -30,7 +30,9 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - [x] (Ignasi) Windows: WSL2 + Docker Desktop working
 - [ ] (Ignasi) Omarchy: run `scripts/setup-omarchy.sh`
 - [ ] (Ignasi) Other Windows PCs, when needed: `scripts/setup-windows.ps1` (needs admin for WSL2); no admin → GitHub Codespaces
-- [x] Labelled PDFs copied to OneDrive (108 PDFs). On this Windows PC `.env` already sets `TESTING_DIR` to that folder.
+- [x] Labelled PDFs copied to OneDrive (108 PDFs, `OneDrive - UAB\_UNI\apunts_testing`).
+- [ ] (Ignasi) Create `.env` on each machine with `TESTING_DIR=<OneDrive path>` (Claude is denied access to `.env` by design)
+- [ ] (Ignasi) In `.claude/settings.json` replace deny `Read(./.env.*)` with `Read(./.env.local)` (current rule also blocks `.env.example`); then add `APUNTS_DIR=` / `TESTING_DIR=` to `.env.example`
 - [ ] Config loader must read `APUNTS_DIR` / `TESTING_DIR` from `.env` (defaults `./apunts`, `./testing/apunts_testing`). Claude cannot read `.env`: ask Ignasi or print the resolved path from Python to verify.
 - [ ] (Ignasi) Omarchy: sync OneDrive (UAB business account) with the `onedrive` client (AUR `onedrive-abraunegg`) or `rclone`, then set `TESTING_DIR` in `.env`
 - [ ] (Ignasi) Once `TESTING_DIR` works, delete the duplicate local copy in `testing/apunts_testing/` (keep OneDrive as the single source)
