@@ -47,6 +47,7 @@ Full rationale: `docs/ARCHITECTURE.md`.
 ## Session workflow (quota-efficient)
 - Start: read this file + `TODO.md` only. Don't scan the whole repo unless the task needs it.
 - One task per session. Prefer small diffs. Run the tests before saying something works.
+- Git: code changes go on a branch `feat/<topic>` (or `fix/`, `test/`) and end with a PR (`gh pr create`) with a clear description; Ignasi reviews the diff and merges on GitHub. Small docs-only changes may go straight to `main`.
 - End: update `TODO.md` (tick tasks, next step, one line in the Session log). Commit with a clear message.
 - Sunday: write `docs/weekly/week-NN.md` ("what we built and why" + 1–2 CV bullets). Use `/weekly-summary`.
 - Models: Sonnet by default. Opus only for structural decisions (architecture, agent design, final review, interview summary). Haiku for docs/formatting/cleanup.
