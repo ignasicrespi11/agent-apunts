@@ -8,8 +8,8 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
   (all of arquitectura_computadors, IS exams/exercises: median 1,800–4,000 chars/page).
   → D13 revised: layout-aware chunking (accepted).
 - Exact duplicates: both fixed (access_control_system kept in labs; IS2425-Parcial1 deleted).
-- Metadata (2026-09-30): draft in `testing/sources_draft.yaml` (private). **Professors appear in no PDF** → `professor` must be
-  optional (nullable) in `DocumentMetadata`, filled from config. **academic_year varies per document** (exams 2022-23 → 2025-26)
+- Metadata (2026-09-30): draft in `testing/sources_draft.yaml` (private), all subjects taken in 2025-26 (confirmed).
+  **Professors appear in no PDF and Ignasi chose not to record them** → `professor` optional (nullable) in `DocumentMetadata`. **academic_year varies per document** (exams 2022-23 → 2025-26)
   → store the document's year (from filename/content) separately from the year the subject was taken.
   **Languages are per document, not per subject** (IS: ca 47% / en 42% / es 10%) → `languages` list in config; D16 per page.
 - Many near-duplicates (ES/EN translations, statement vs solutions, book with/without solutions) → D19 (phase 2).
@@ -24,10 +24,11 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - [x] Data pipeline decisions D11–D17 → `docs/ARCHITECTURE.md`; pre-commit hook blocking course material
 - [ ] **Next:** Devcontainer + `docker-compose.yml` (app + Qdrant)
 - [ ] `pyproject.toml` with uv, package `agent_apunts`, pytest running
-- [ ] `config/settings.yaml` + `config/sources.yaml` (from `testing/sources_draft.yaml`; decide if it's committed or private, since it holds professor names) + `config.py` loader + `DocumentMetadata` model + tests
+- [ ] `config/settings.yaml` + `config/sources.yaml` (from `testing/sources_draft.yaml`; no personal data, can be committed) + `config.py` loader + `DocumentMetadata` model + tests
 - [x] (Ignasi) Labelled set: 3 subjects, 110 PDFs in `testing/apunts_testing/<subject>/<doc_type>/`
 - [x] Setup scripts for Windows + Omarchy (`docs/SETUP.md`)
-- [ ] (Ignasi) Windows: `wsl --install --no-distribution` (admin) + reboot so Docker Desktop works; Omarchy: run `scripts/setup-omarchy.sh`
+- [x] (Ignasi) Windows: WSL2 + Docker Desktop working
+- [ ] (Ignasi) Omarchy: run `scripts/setup-omarchy.sh`
 - [ ] Learn: reading Python (modules, imports, type hints, dataclasses/Pydantic, pytest)
 - [ ] Sunday: `docs/weekly/week-01.md`
 
