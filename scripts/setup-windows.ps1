@@ -69,4 +69,5 @@ if (Get-Command docker -ErrorAction SilentlyContinue) {
 
 Step "Done"
 Write-Host "  Open the project: code `"$Dir`"  (VS Code will offer 'Reopen in Container' once the devcontainer exists)"
-Write-Host "  Copy your PDFs into $Dir\apunts\ (labelled set: $Dir\testing\apunts_testing\<subject>\<doc_type>\) (they are never committed)"
+Write-Host "  NEXT: edit $Dir\.env and set TESTING_DIR to your OneDrive folder, e.g."
+Write-Host "        TESTING_DIR=$HOME\OneDrive - UAB\_UNI\apunts_testing   (see docs\SETUP.md, steps 2-3)"

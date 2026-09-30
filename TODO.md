@@ -28,13 +28,12 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - [x] (Ignasi) Labelled set: 3 subjects, 110 PDFs in `testing/apunts_testing/<subject>/<doc_type>/`
 - [x] Setup scripts for Windows + Omarchy (`docs/SETUP.md`)
 - [x] (Ignasi) Windows: WSL2 + Docker Desktop working
-- [ ] (Ignasi) Omarchy: run `scripts/setup-omarchy.sh`
-- [ ] (Ignasi) Other Windows PCs, when needed: `scripts/setup-windows.ps1` (needs admin for WSL2); no admin → GitHub Codespaces
 - [x] Labelled PDFs copied to OneDrive (108 PDFs, `OneDrive - UAB\_UNI\apunts_testing`).
-- [ ] (Ignasi) Create `.env` on each machine with `TESTING_DIR=<OneDrive path>` (Claude is denied access to `.env` by design)
-- [ ] (Ignasi) In `.claude/settings.json` replace deny `Read(./.env.*)` with `Read(./.env.local)` (current rule also blocks `.env.example`); then add `APUNTS_DIR=` / `TESTING_DIR=` to `.env.example`
-- [ ] Config loader must read `APUNTS_DIR` / `TESTING_DIR` from `.env` (defaults `./apunts`, `./testing/apunts_testing`). Claude cannot read `.env`: ask Ignasi or print the resolved path from Python to verify.
-- [ ] (Ignasi) Omarchy: sync OneDrive (UAB business account) with the `onedrive` client (AUR `onedrive-abraunegg`) or `rclone`, then set `TESTING_DIR` in `.env`
+- [x] Deny rule fixed (only `.env` / `.env.local`); `.env.example` documents `APUNTS_DIR` / `TESTING_DIR`
+- [x] `docs/SETUP.md`: 3 steps per machine (script → OneDrive → `.env`), incl. OneDrive on Omarchy
+- [ ] (Ignasi) This Windows PC: create `.env` from `.env.example` with `TESTING_DIR` (not done yet as of 2026-09-30)
+- [ ] (Ignasi) Omarchy + second Windows PC: follow `docs/SETUP.md` steps 1–3
+- [ ] Config loader must read `APUNTS_DIR` / `TESTING_DIR` from `.env` (defaults `./apunts`, `./testing/apunts_testing`). Claude cannot read `.env`: verify by printing the resolved path and PDF count from Python.
 - [ ] (Ignasi) Once `TESTING_DIR` works, delete the duplicate local copy in `testing/apunts_testing/` (keep OneDrive as the single source)
 - [ ] Learn: reading Python (modules, imports, type hints, dataclasses/Pydantic, pytest)
 - [ ] Sunday: `docs/weekly/week-01.md`

@@ -61,4 +61,5 @@ if docker info >/dev/null 2>&1; then echo "  Docker is running"; else warn "Dock
 
 step "Done"
 echo "  Open the project: code \"$DIR\"  (VS Code will offer 'Reopen in Container' once the devcontainer exists)"
-echo "  Copy your PDFs into $DIR/apunts/ (labelled set: $DIR/testing/apunts_testing/<subject>/<doc_type>/) (they are never committed)"
+echo "  NEXT: sync OneDrive and set TESTING_DIR in $DIR/.env, e.g. TESTING_DIR=$HOME/OneDrive/_UNI/apunts_testing"
+echo "        (see docs/SETUP.md, steps 2-3)"
