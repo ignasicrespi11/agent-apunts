@@ -1,7 +1,7 @@
 # Setup
 
-Per machine there are 3 steps: **(1) run the setup script**, **(2) get the private PDFs via OneDrive**,
-**(3) create `.env`** pointing to them. The scripts are safe to re-run.
+Per machine there are 4 steps: **(1) run the setup script**, **(2) get the private PDFs via OneDrive**,
+**(3) create `.env`** pointing to them, **(4) `uv sync` + start Qdrant**. The scripts are safe to re-run.
 
 The script installs the tools, logs in to GitHub, clones the repo, enables the pre-commit hook
 (blocks committing course material) and installs Python 3.12.
@@ -81,6 +81,21 @@ Test-Path "C:\Users\<you>\OneDrive - UAB\_UNI\apunts_testing"
 test -d ~/OneDrive/_UNI/apunts_testing && echo True
 ```
 
+## 4. Python environment and Qdrant
+
+The Python code runs natively (uv); only Qdrant (vector database) runs in Docker.
+
+```bash
+uv sync                  # creates .venv/ with the exact versions from uv.lock
+uv run pytest            # should pass
+docker compose up -d     # starts Qdrant (Docker Desktop must be running on Windows)
+```
+
+Check Qdrant is up: `curl.exe http://localhost:6333/readyz` (Windows) or `curl http://localhost:6333/readyz`
+should print `all shards are ready`. Dashboard: http://localhost:6333/dashboard.
+Vectors live in the Docker volume `qdrant_storage` (survives restarts). `docker compose down -v` deletes them;
+they can always be rebuilt by re-ingesting.
+
 ## Troubleshooting
 
 | Symptom | Fix |
@@ -91,6 +106,7 @@ test -d ~/OneDrive/_UNI/apunts_testing && echo True
 | Script blocked by execution policy | Use `powershell -ExecutionPolicy Bypass -File ...` as shown above. |
 | A new tool is "not recognized" right after installing | Open a new terminal (PATH is only refreshed in new sessions). |
 | `.env` saved as `.env.txt` (Notepad) | Rename it, or save with "All files (*.*)" as the type. Check with `dir /a` or `ls -a`. |
+| `failed to connect to the docker API ... dockerDesktopLinuxEngine` | Docker Desktop is not running: open it and wait until it says "Engine running". |
 | OneDrive (Omarchy) syncs nothing | After editing `sync_list`, run `onedrive --sync --resync`. |
 
 ## After setup
