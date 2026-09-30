@@ -50,7 +50,7 @@ Full rationale: `docs/ARCHITECTURE.md`.
 - Git: code changes go on a branch `feat/<topic>` (or `fix/`, `test/`) and end with a PR (`gh pr create`) with a clear description; Ignasi reviews the diff and merges on GitHub. Small docs-only changes may go straight to `main`.
 - End: update `TODO.md` (tick tasks, next step, one line in the Session log). Commit with a clear message.
 - Sunday: write `docs/weekly/week-NN.md` ("what we built and why" + 1–2 CV bullets). Use `/weekly-summary`.
-- Models: Sonnet by default. Opus only for structural decisions (architecture, agent design, final review, interview summary). Haiku for docs/formatting/cleanup.
+- Models: Opus for structural decisions and for the first programming sessions (solid foundations), and while quota allows; switch to Sonnet when usage gets high. Haiku for docs/formatting/cleanup. Always start a fresh session per task: long sessions cost more than model choice.
 
 ## Calendar
 No work 26–30 Oct 2026 or 23 Dec 2026–29 Jan 2027 (exams). Phase dates are in `TODO.md`.
