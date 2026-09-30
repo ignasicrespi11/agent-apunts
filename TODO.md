@@ -30,7 +30,10 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - [x] (Ignasi) Windows: WSL2 + Docker Desktop working
 - [ ] (Ignasi) Omarchy: run `scripts/setup-omarchy.sh`
 - [ ] (Ignasi) Other Windows PCs, when needed: `scripts/setup-windows.ps1` (needs admin for WSL2); no admin → GitHub Codespaces
-- [ ] PDFs are not in git: other machines get them via OneDrive; input folders configurable in `.env` (e.g. `APUNTS_DIR`, `TESTING_DIR`)
+- [x] Labelled PDFs copied to OneDrive (108 PDFs). On this Windows PC `.env` already sets `TESTING_DIR` to that folder.
+- [ ] Config loader must read `APUNTS_DIR` / `TESTING_DIR` from `.env` (defaults `./apunts`, `./testing/apunts_testing`). Claude cannot read `.env`: ask Ignasi or print the resolved path from Python to verify.
+- [ ] (Ignasi) Omarchy: sync OneDrive (UAB business account) with the `onedrive` client (AUR `onedrive-abraunegg`) or `rclone`, then set `TESTING_DIR` in `.env`
+- [ ] (Ignasi) Once `TESTING_DIR` works, delete the duplicate local copy in `testing/apunts_testing/` (keep OneDrive as the single source)
 - [ ] Learn: reading Python (modules, imports, type hints, dataclasses/Pydantic, pytest)
 - [ ] Sunday: `docs/weekly/week-01.md`
 
