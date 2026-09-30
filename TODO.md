@@ -22,9 +22,9 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - [x] `git init`, first commit, public repo github.com/ignasicrespi11/agent-apunts
 - [x] Open questions answered: slide PDFs (text+images, ca/es/en), Ollama first → Claude API later, material is copyrighted
 - [x] Data pipeline decisions D11–D17 → `docs/ARCHITECTURE.md`; pre-commit hook blocking course material
-- [ ] **Next:** Devcontainer + `docker-compose.yml` (app + Qdrant)
-- [ ] `pyproject.toml` with uv, package `agent_apunts`, pytest running
-- [ ] `config/settings.yaml` + `config/sources.yaml` (from `testing/sources_draft.yaml`; no personal data, can be committed) + `config.py` loader + `DocumentMetadata` model + tests
+- [x] `docker-compose.yml` (Qdrant v1.19.1, localhost-only ports, named volume). No devcontainer: app runs natively with uv (GPU, OneDrive)
+- [x] `pyproject.toml` with uv, package `agent_apunts`, pytest + ruff running
+- [ ] **Next:** `config/settings.yaml` + `config/sources.yaml` (from `testing/sources_draft.yaml`; no personal data, can be committed) + `config.py` loader + `DocumentMetadata` model + tests
 - [x] (Ignasi) Labelled set: 3 subjects, 110 PDFs in `testing/apunts_testing/<subject>/<doc_type>/`
 - [x] Setup scripts for Windows + Omarchy (`docs/SETUP.md`)
 - [x] (Ignasi) Windows: WSL2 + Docker Desktop working
@@ -66,6 +66,7 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - [ ] Demo script, interview Q&A drills, final project summary (Opus)
 
 ## Parking lot
+- Devcontainer (only if deployment or onboarding needs it)
 - OCR for scanned/handwritten notes (only if needed)
 - DOCX / PPTX / Markdown loaders
 - Docling as fallback extractor if PyMuPDF text order is bad
@@ -80,3 +81,4 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - 2026-09-29: Renamed notes/ → apunts/ (inbox) + testing/apunts_testing/ (labelled set, 110 PDFs, 3 subjects). Package name: agent_apunts. Corpus analysed: see Corpus findings.
 - 2026-09-29: Local folder renamed to agent-apunts. D13 revised (layout-aware chunking) and D19 (near-duplicate grouping) accepted.
 - 2026-09-30: Metadata draft generated from PDFs (testing/sources_draft.yaml); findings on professor/year/language recorded. Model policy: Opus for first coding sessions.
+- 2026-09-30: Dev environment: pyproject + uv.lock (Python 3.12, minimal deps), Qdrant via docker-compose, smoke tests. Devcontainer dropped (native uv).

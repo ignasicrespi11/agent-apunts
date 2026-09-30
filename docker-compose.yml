@@ -1,0 +1,13 @@
+# Local services. The Python app runs natively (uv); only Qdrant runs in Docker.
+# Start: docker compose up -d · Stop: docker compose down · Wipe vectors: docker compose down -v
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.19.1  # pinned: upgrade deliberately, not by surprise
+    ports:
+      - "127.0.0.1:6333:6333"  # REST API + web dashboard (http://localhost:6333/dashboard)
+      - "127.0.0.1:6334:6334"  # gRPC API
+    volumes:
+      - qdrant_storage:/qdrant/storage  # Docker-managed volume: survives container restarts
+
+volumes:
+  qdrant_storage:
