@@ -28,7 +28,7 @@ def test_config_counts_pdfs_and_reports_problems(in_project):
     result = runner.invoke(app, ["config"])
 
     assert result.exit_code == 0, result.output
-    assert "3 PDFs" in result.output
+    assert "3 documents" in result.output
     assert "disseny_software" in result.output
     assert "typo_subject" in result.output and "problem" in result.output
 
@@ -38,3 +38,32 @@ def test_config_error_exits_nonzero(in_project):
     result = runner.invoke(app, ["config"])
     assert result.exit_code == 1
     assert "Configuration error" in result.output
+
+
+def test_register_extract_inspect(in_project):
+    from tests.pdf_factory import make_pdf
+
+    corpus = in_project / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide", "a4"])
+
+    result = runner.invoke(app, ["register"])
+    assert result.exit_code == 0, result.output
+    assert "1 new" in result.output
+
+    result = runner.invoke(app, ["extract"])
+    assert result.exit_code == 0, result.output
+    assert "1 extracted (2 pages)" in result.output
+
+    result = runner.invoke(app, ["inspect", "patrons"])
+    assert result.exit_code == 0, result.output
+    assert "Patrons de disseny" in result.output and "landscape" in result.output
+
+    result = runner.invoke(app, ["inspect", "patrons", "--page", "2"])
+    assert result.exit_code == 0, result.output
+    assert "memoria caché" in result.output
+
+
+def test_inspect_unknown_document(in_project):
+    result = runner.invoke(app, ["inspect", "nothing"])
+    assert result.exit_code == 1
+    assert "No document matches" in result.output

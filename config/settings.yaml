@@ -21,6 +21,10 @@ extraction:
   image_page_max_chars: 80
   # Thumbnail width in pixels (height keeps the page's aspect ratio).
   thumbnail_width: 320
+  # Language detection (D16) needs enough text: shorter pages ("Tema 3") get no language,
+  # and so do pages where the detector is less sure than this (0-1).
+  language_min_chars: 20
+  language_min_confidence: 0.8
 
 embedding:
   model: BAAI/bge-m3

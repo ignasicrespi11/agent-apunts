@@ -63,6 +63,8 @@ class Paths(_Strict):
 class ExtractionSettings(_Strict):
     image_page_max_chars: int = Field(ge=0)
     thumbnail_width: int = Field(gt=0)
+    language_min_chars: int = Field(ge=0)
+    language_min_confidence: float = Field(ge=0, le=1)
 
 
 class EmbeddingSettings(_Strict):
@@ -80,6 +82,18 @@ class LLMSettings(_Strict):
     model: str
 
 
+class Source(_Strict):
+    """A folder documents are read from.
+
+    labelled=True: every file must sit in <subject>/<doc_type>/ folders (the manually organised
+    ground truth). labelled=False: folders are an optional hint (the inbox, D18).
+    """
+
+    name: str
+    root: Path
+    labelled: bool
+
+
 class Settings(_Strict):
     user: UserProfile
     languages: list[str] = Field(min_length=1)
@@ -91,9 +105,18 @@ class Settings(_Strict):
     subjects: dict[Slug, Subject]
 
     @property
-    def source_dirs(self) -> dict[str, Path]:
-        """Where documents are read from, by source name (stored in the manifest)."""
-        return {"testing": self.paths.testing_dir, "apunts": self.paths.apunts_dir}
+    def sources(self) -> tuple[Source, ...]:
+        """Where documents are read from. The name is stored in the manifest with each document."""
+        return (
+            Source(name="testing", root=self.paths.testing_dir, labelled=True),
+            Source(name="apunts", root=self.paths.apunts_dir, labelled=False),
+        )
+
+    def source(self, name: str) -> Source:
+        for source in self.sources:
+            if source.name == name:
+                return source
+        raise KeyError(f"unknown source {name!r} (known: {[s.name for s in self.sources]})")
 
 
 # Per-machine values read from the environment, with their defaults.
