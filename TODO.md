@@ -1,6 +1,6 @@
 # TODO
 
-Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
+Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Week 2's code was built early (5 Oct). What's left is validating it on the real corpus.
 
 ## Corpus findings (2026-09-29, labelled set)
 - 110 PDFs, 2,087 pages. No encrypted/broken files.
@@ -24,7 +24,7 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - [x] Data pipeline decisions D11–D17 → `docs/ARCHITECTURE.md`; pre-commit hook blocking course material
 - [x] `docker-compose.yml` (Qdrant v1.19.1, localhost-only ports, named volume). No devcontainer: app runs natively with uv (GPU, OneDrive)
 - [x] `pyproject.toml` with uv, package `agent_apunts`, pytest + ruff running
-- [ ] **Next:** `config/settings.yaml` + `config/sources.yaml` (from `testing/sources_draft.yaml`; no personal data, can be committed) + `config.py` loader + `DocumentMetadata` model + tests
+- [x] `config/settings.yaml` + `config/sources.yaml` + `config.py` loader (D20) + `DocumentMetadata` (D21) + tests
 - [x] (Ignasi) Labelled set: 3 subjects, 110 PDFs in `testing/apunts_testing/<subject>/<doc_type>/`
 - [x] Setup scripts for Windows + Omarchy (`docs/SETUP.md`)
 - [x] (Ignasi) Windows: WSL2 + Docker Desktop working
@@ -33,13 +33,17 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - [x] `docs/SETUP.md`: 3 steps per machine (script → OneDrive → `.env`), incl. OneDrive on Omarchy
 - [ ] (Ignasi) This Windows PC: create `.env` from `.env.example` with `TESTING_DIR` (not done yet as of 2026-09-30)
 - [ ] (Ignasi) Omarchy + second Windows PC: follow `docs/SETUP.md` steps 1–3
-- [ ] Config loader must read `APUNTS_DIR` / `TESTING_DIR` from `.env` (defaults `./apunts`, `./testing/apunts_testing`). Claude cannot read `.env`: verify by printing the resolved path and PDF count from Python.
+- [x] Config loader reads `APUNTS_DIR` / `TESTING_DIR` / `QDRANT_URL` from `.env`; `uv run agent-apunts config` prints resolved paths + document counts
+- [ ] (Ignasi) On each machine: `uv run agent-apunts config` must show 110 documents and no "problem" lines
+- [ ] (Ignasi) Check subject names in `config/sources.yaml` (written by Claude from the folder names)
 - [ ] (Ignasi) Once `TESTING_DIR` works, delete the duplicate local copy in `testing/apunts_testing/` (keep OneDrive as the single source)
 - [ ] Learn: reading Python (modules, imports, type hints, dataclasses/Pydantic, pytest)
-- [ ] Sunday: `docs/weekly/week-01.md`
+- [x] Sunday: `docs/weekly/week-01.md`
 
 ## Phase 1 — First version (to 25 Oct)
-- [ ] W2 (6–12 Oct): manifest (content-hash doc IDs) + PDF extractor (PyMuPDF: title, text, language, thumbnail, image flag) → `data/processed/*.json`; `inspect` command; tests
+- [x] W2 (built 5 Oct): manifest (D22) + loader registry (D23) + PDF extractor (D24, language D25) → `data/processed/<user>/<doc_id>.json`; `register` / `extract` / `inspect` commands; 71 tests on synthetic PDFs
+- [ ] **Next (Ignasi, local machine with the PDFs):** `uv sync`, `uv run agent-apunts register`, `extract`, then `inspect` 3–5 documents (one slide deck per subject + one exam), comparing page text, title and language with the PDF. Note what's wrong in `docs/weekly/week-02.md` or a GitHub issue: wrong titles, wrong languages, empty pages, jumbled text order. Expect ~1–3 min for 2,087 pages
+- [ ] Fix extraction issues found on the real corpus (title heuristic, language thresholds in `settings.yaml`)
 - [ ] W3 (13–19 Oct): boilerplate cleaning + slide chunking with contextual header; embeddings (bge-m3), Qdrant collection + payload indexes (user_id as tenant, subject), idempotent ingest, filtered search; `ingest` / `search` CLI
 - [ ] W4 (20–25 Oct): LLMClient + Ollama implementation (Windows GPU), grounded `ask` with citations + abstention, 20 golden questions (ca/es/en), hit@k script; metadata auto-detection (D18) + accuracy vs manually organised subjects
 - 🛑 26–30 Oct: exams
@@ -82,3 +86,4 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - 2026-09-29: Local folder renamed to agent-apunts. D13 revised (layout-aware chunking) and D19 (near-duplicate grouping) accepted.
 - 2026-09-30: Metadata draft generated from PDFs (testing/sources_draft.yaml); findings on professor/year/language recorded. Model policy: Opus for first coding sessions.
 - 2026-09-30: Dev environment: pyproject + uv.lock (Python 3.12, minimal deps), Qdrant via docker-compose, smoke tests. Devcontainer dropped (native uv).
+- 2026-10-05: (cloud session, Opus) New rule: sessions use the whole token budget, every why documented. Config + DocumentMetadata, `config` command, manifest + loader registry + PDF extraction + `inspect` (D20–D25), week-01 summary. 71 tests pass. Not yet run on real PDFs. Push was blocked (GitHub App access) at first.

@@ -1,7 +1,7 @@
 # Setup
 
 Per machine there are 4 steps: **(1) run the setup script**, **(2) get the private PDFs via OneDrive**,
-**(3) create `.env`** pointing to them, **(4) `uv sync` + start Qdrant**. The scripts are safe to re-run.
+**(3) create `.env`** pointing to them, **(4) `uv sync` + check config + start Qdrant**. Step 5 is the first pipeline run. The scripts are safe to re-run.
 
 The script installs the tools, logs in to GitHub, clones the repo, enables the pre-commit hook
 (blocks committing course material) and installs Python 3.12.
@@ -91,10 +91,28 @@ uv run pytest            # should pass
 docker compose up -d     # starts Qdrant (Docker Desktop must be running on Windows)
 ```
 
+Check `.env` is read correctly (paths resolved, PDFs counted per subject; secrets are never printed):
+
+```bash
+uv run agent-apunts config   # the labelled set must show 110 documents and no "problem" lines
+```
+
 Check Qdrant is up: `curl.exe http://localhost:6333/readyz` (Windows) or `curl http://localhost:6333/readyz`
 should print `all shards are ready`. Dashboard: http://localhost:6333/dashboard.
 Vectors live in the Docker volume `qdrant_storage` (survives restarts). `docker compose down -v` deletes them;
 they can always be rebuilt by re-ingesting.
+
+## 5. First pipeline run (labelled set)
+
+```bash
+uv run agent-apunts register          # stage 1: content-hash IDs -> data/manifest.sqlite
+uv run agent-apunts extract           # stage 2: text, title, language, thumbnails -> data/processed/
+uv run agent-apunts inspect IS2425    # what was extracted from a document (part of its name or doc_id)
+uv run agent-apunts inspect IS2425 --page 3   # full text of one page: compare it with the PDF
+```
+
+Both stages are incremental: re-running only processes new or changed files (`extract --force` redoes all).
+Everything goes to `data/` (gitignored: it is derived from copyrighted material).
 
 ## Troubleshooting
 

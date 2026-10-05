@@ -15,11 +15,19 @@ It uses retrieval-augmented generation (RAG) over a vector database.
 ## Setup
 Windows 11 and Omarchy (Arch Linux): see [docs/SETUP.md](docs/SETUP.md).
 
+## Usage (so far)
+```bash
+uv run agent-apunts config     # resolved settings + documents per subject (checks .env)
+uv run agent-apunts register   # stage 1: content-hash document IDs in a SQLite manifest
+uv run agent-apunts extract    # stage 2: per-page text, title, language, thumbnail -> JSON
+uv run agent-apunts inspect <name or doc_id> [--page N]
+```
+
 ## Architecture
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Stack
-Python 3.12 · uv · Qdrant · sentence-transformers · Claude API · Typer · FastAPI · Streamlit · pytest · Docker devcontainer
+Python 3.12 · uv · Pydantic · PyMuPDF · Qdrant (Docker) · bge-m3 embeddings · Ollama → Claude API · Typer · FastAPI · Streamlit · pytest
 
 ## Roadmap (beyond v1)
 - Multi-user support with authentication (the data model already carries `user_id` on every chunk and query)
