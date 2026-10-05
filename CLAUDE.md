@@ -44,15 +44,19 @@ Full rationale: `docs/ARCHITECTURE.md`.
 ## Commands
 - New machine: `scripts/setup-windows.ps1` or `scripts/setup-omarchy.sh` (see `docs/SETUP.md`); they also enable the pre-commit hook
 
-## Session workflow (quota-efficient)
+## Session workflow (use the whole token budget, document every why)
 - Start: read this file + `TODO.md` only. Don't scan the whole repo unless the task needs it.
-- One task per session. Prefer small diffs. Run the tests before saying something works.
+- A session's goal is to **use its token budget fully**, not to be short: chain tasks from `TODO.md` in order.
+  Approve the structural decisions up front (one batch of questions), then work through them.
+- One commit per task; small, reviewable diffs. Run the tests before saying something works.
+- Every decision is documented with its **why** and the rejected alternative: `docs/ARCHITECTURE.md` (decision table)
+  for design choices, the commit message for smaller ones, a short comment in code only when the why isn't obvious.
 - Git: code changes go on a branch `feat/<topic>` (or `fix/`, `test/`) and end with a PR (`gh pr create`) with a clear description; Ignasi reviews the diff and merges on GitHub. Small docs-only changes may go straight to `main`.
 - End: update `TODO.md` (tick tasks, next step, one line in the Session log). Commit with a clear message.
 - Sunday: write `docs/weekly/week-NN.md` ("what we built and why" + 1–2 CV bullets). Use `/weekly-summary`.
 - Models — rule of thumb: **task creates a new interface/pattern → Opus; task follows an existing pattern → Sonnet.**
   Opus: foundations (config + metadata model, loader interface/registry, manifest, store/LLM interfaces), agent and eval design, final review.
-  Sonnet: new loaders, CLI commands, tests, bug fixes, UI. Switch to Sonnet anyway if quota gets tight. Haiku for docs/formatting/cleanup. Always start a fresh session per task: long sessions cost more than model choice.
+  Sonnet: new loaders, CLI commands, tests, bug fixes, UI. Switch to Sonnet anyway if quota gets tight. Haiku for docs/formatting/cleanup. Within a long session, follow the plan agreed at the start.
 
 ## Calendar
 No work 26–30 Oct 2026 or 23 Dec 2026–29 Jan 2027 (exams). Phase dates are in `TODO.md`.
