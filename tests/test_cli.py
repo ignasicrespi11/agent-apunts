@@ -67,3 +67,9 @@ def test_inspect_unknown_document(in_project):
     result = runner.invoke(app, ["inspect", "nothing"])
     assert result.exit_code == 1
     assert "No document matches" in result.output
+
+
+def test_register_unknown_source(in_project):
+    result = runner.invoke(app, ["register", "--source", "nope"])
+    assert result.exit_code == 1
+    assert "unknown source" in result.output

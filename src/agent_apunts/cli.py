@@ -103,7 +103,11 @@ def register(
     """Stage 1: give every file a content-hash ID and record it in the manifest. Safe to re-run."""
     s = _settings()
     user_id = s.user.id
-    sources = s.sources if source == "all" else (s.source(source),)
+    try:
+        sources = s.sources if source == "all" else (s.source(source),)
+    except KeyError as e:
+        console.print(f"[red]{e.args[0]}[/red]")
+        raise typer.Exit(1) from e
     with Manifest(s.paths.manifest) as manifest:
         for src in sources:
             r = register_source(manifest, user_id, src, s)
