@@ -1,0 +1,35 @@
+# Shared settings: identical on every machine, committed to git.
+# Machine-specific values (paths, URLs) and secrets live in .env instead (see .env.example).
+# Loaded and validated by src/agent_apunts/config.py: a typo in a key is an error at startup.
+
+# The single user for now. user_id is passed explicitly through the code (never a global),
+# so multi-user later only changes where this value comes from (D7).
+user:
+  id: ignasi
+  university: UAB
+  degree: Computer Engineering
+
+# Languages the material is written in. Language detection (D16) only chooses among these:
+# restricting the candidates makes detection on short slide text far more reliable.
+languages: [ca, es, en]
+
+# Stage outputs (manifest, processed JSON, thumbnails). Gitignored: derived from copyrighted PDFs.
+data_dir: data
+
+extraction:
+  # Pages with fewer characters than this are flagged "mostly image" (D14).
+  image_page_max_chars: 80
+  # Thumbnail width in pixels (height keeps the page's aspect ratio).
+  thumbnail_width: 320
+
+embedding:
+  model: BAAI/bge-m3
+  dimension: 1024
+
+qdrant:
+  collection: apunts
+
+# Provisional: the local model is chosen in week 4 by running the eval (D4, D8).
+llm:
+  provider: ollama
+  model: qwen2.5:7b
