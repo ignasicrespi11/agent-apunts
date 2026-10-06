@@ -134,7 +134,8 @@ def extract(
         f"{len(r.extracted)} extracted ({r.pages} pages), {len(r.up_to_date)} up to date, "
         f"{len(r.errors)} errors"
     )
-    _list("pages with no text at all (check them with inspect)", r.empty_pages)
+    empty = [f"{path}  page {page}" for path, page in r.empty_pages]
+    _list("pages with no text at all (check them with inspect)", empty)
     _list("errors", r.errors, "red")
 
 
