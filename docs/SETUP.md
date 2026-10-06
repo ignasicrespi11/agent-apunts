@@ -30,6 +30,9 @@ bash setup-omarchy.sh
 
 Already cloned: `bash scripts/setup-omarchy.sh`. Log out and back in afterwards (docker group).
 
+Both scripts clone the repo to **`~/code/agent-apunts`** (Windows: `$HOME\code\agent-apunts`; change it with
+`DIR=...` / `-Dir ...`) and create `.env` from `.env.example` if it doesn't exist yet. Every later command runs from that folder.
+
 ## 2. Private PDFs (OneDrive)
 
 Course material is copyrighted and **never in git**. The single source of truth is OneDrive (UAB account):
@@ -59,7 +62,8 @@ Files end up in `~/OneDrive/_UNI/...`.
 ## 3. `.env` (one per machine, never committed)
 
 ```bash
-cp .env.example .env      # Windows: copy .env.example .env
+cd ~/code/agent-apunts
+cp -n .env.example .env   # Windows: copy .env.example .env  (skip if the script already created it)
 ```
 
 Then edit `.env` and set the folder from step 2:
