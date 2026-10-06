@@ -52,7 +52,7 @@
 
 ## Risks / open issues
 - Extraction has only been tested on synthetic PDFs (this week's coding ran in a cloud session without the real corpus). **Next: run
-  `register` + `extract` on the 110 real PDFs and check titles, languages and empty pages with `inspect`.**
+  `register` + `extract` on the 108 real PDFs and check titles, languages and empty pages with `inspect`.**
 - The title heuristic (largest font) may fail on decorative text or image titles; language detection may fail on very short pages.
 - `.env` is not yet created on every machine; Omarchy setup is still pending.
 - Docker was installed on Windows but the Qdrant stack hasn't been exercised by code yet (week 3).

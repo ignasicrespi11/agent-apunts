@@ -98,7 +98,7 @@ docker compose up -d     # starts Qdrant (Docker Desktop must be running on Wind
 Check `.env` is read correctly (paths resolved, PDFs counted per subject; secrets are never printed):
 
 ```bash
-uv run agent-apunts config   # the labelled set must show 110 documents and no "problem" lines
+uv run agent-apunts config   # labelled set: 108 documents, no "problem" lines
 ```
 
 Check Qdrant is up: `curl.exe http://localhost:6333/readyz` (Windows) or `curl http://localhost:6333/readyz`

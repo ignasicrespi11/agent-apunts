@@ -34,7 +34,7 @@ Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Week 2's code was built early 
 - [ ] (Ignasi) This Windows PC: create `.env` from `.env.example` with `TESTING_DIR` (not done yet as of 2026-09-30)
 - [ ] (Ignasi) Omarchy + second Windows PC: follow `docs/SETUP.md` steps 1–3
 - [x] Config loader reads `APUNTS_DIR` / `TESTING_DIR` / `QDRANT_URL` from `.env`; `uv run agent-apunts config` prints resolved paths + document counts
-- [ ] (Ignasi) On each machine: `uv run agent-apunts config` must show 110 documents and no "problem" lines
+- [ ] (Ignasi) On each machine (Omarchy ✓ 2026-10-06): `uv run agent-apunts config` must show 108 documents (110 analysed minus 2 exact duplicates removed) and no "problem" lines
 - [ ] (Ignasi) Check subject names in `config/sources.yaml` (written by Claude from the folder names)
 - [ ] (Ignasi) Once `TESTING_DIR` works, delete the duplicate local copy in `testing/apunts_testing/` (keep OneDrive as the single source)
 - [ ] Learn: reading Python (modules, imports, type hints, dataclasses/Pydantic, pytest)
