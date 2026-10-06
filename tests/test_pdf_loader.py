@@ -57,3 +57,18 @@ def test_normalize_text():
     decomposed = "memòria"  # "o" + combining grave accent
     assert normalize_text(decomposed) == "memòria"
     assert normalize_text("a  \n\n\n\nb \n") == "a\n\nb"
+
+
+def test_big_bullets_are_not_a_title(tmp_path):
+    # Real case (slides_grasp.pdf p45): a row of bullets in a big font was taken as the title.
+    doc = pymupdf.open()
+    page = doc.new_page(width=842, height=595)
+    page.insert_text((50, 80), "High cohesion", fontsize=28)
+    page.insert_text((50, 160), "\u2022 \u2022 \u2022 \u2022", fontsize=40)
+    page.insert_textbox(
+        pymupdf.Rect(50, 200, 790, 500), "Body text of the slide. " * 10, fontsize=16
+    )
+    path = tmp_path / "bullets.pdf"
+    doc.save(path)
+    (page,) = PdfLoader().load(path, tmp_path / "t", 100)
+    assert page.title == "High cohesion"

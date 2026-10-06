@@ -32,7 +32,7 @@ def test_extracts_every_document(manifest, settings):
     assert report.empty_pages == [("disseny_software/theory/slides.pdf", 2)]
 
     slides = _doc(manifest, settings, "slides")
-    assert slides.user_id == USER and slides.extractor == "pymupdf-1"
+    assert slides.user_id == USER and slides.extractor == "pymupdf-2"
     assert slides.metadata.subject == "disseny_software"
     slide, image = slides.pages
     assert slide.title == "Patrons de disseny" and slide.language == "ca"
@@ -48,7 +48,7 @@ def test_marks_stage_in_manifest(manifest, settings):
     extract_all(manifest, USER, settings)
     for record in manifest.documents(USER):
         stage = manifest.stage(USER, record.doc_id, "extract")
-        assert stage.version == "pymupdf-1"
+        assert stage.version == "pymupdf-2"
         assert stage.output == f"processed/{USER}/{record.doc_id}.json"
 
 

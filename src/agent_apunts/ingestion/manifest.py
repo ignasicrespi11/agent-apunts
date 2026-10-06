@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS stages (
     user_id      TEXT NOT NULL,
     doc_id       TEXT NOT NULL,
     stage        TEXT NOT NULL,    -- 'extract', later 'chunk', 'index'
-    version      TEXT NOT NULL,    -- what produced the output, e.g. 'pymupdf-1'
+    version      TEXT NOT NULL,    -- what produced the output, e.g. 'pymupdf-2'
     output       TEXT,             -- path of the output, relative to data_dir
     completed_at TEXT NOT NULL,
     PRIMARY KEY (user_id, doc_id, stage),

@@ -44,10 +44,10 @@ def test_same_document_for_two_users(manifest):
 
 def test_update_location_keeps_stages(manifest):
     manifest.add("ignasi", "abc123", "apunts", "loose.pdf", 10, None)
-    manifest.mark_done("ignasi", "abc123", "extract", "pymupdf-1", "processed/x.json")
+    manifest.mark_done("ignasi", "abc123", "extract", "pymupdf-2", "processed/x.json")
     manifest.update_location("ignasi", "abc123", "testing", "disseny_software/theory/t.pdf", META)
     assert manifest.get("ignasi", "abc123").source == "testing"
-    assert manifest.stage("ignasi", "abc123", "extract").version == "pymupdf-1"
+    assert manifest.stage("ignasi", "abc123", "extract").version == "pymupdf-2"
 
 
 def test_mark_done_overwrites(manifest):

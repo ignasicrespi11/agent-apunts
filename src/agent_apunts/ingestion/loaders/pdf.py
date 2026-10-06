@@ -29,8 +29,8 @@ def guess_title(page: pymupdf.Page) -> str | None:
     """Heuristic: the title is the text in the largest font, if that font is clearly larger than
     the body text (>= 15%). A4 pages written in one font size get None instead of a random line.
 
-    Known weak spots (check with `inspect`): decorative big text (a huge "01"), titles that are
-    images, headings set in bold but the same size as the body.
+    Known weak spots (check with `inspect`): decorative big text (a huge "01"), big callouts in
+    the middle of a slide, titles that are images, headings in bold but the same size as the body.
     """
     spans = [
         span
@@ -44,10 +44,14 @@ def guess_title(page: pymupdf.Page) -> str | None:
     # Body size = the font size covering most characters (median weighted by text length).
     sizes = [span["size"] for span in spans for _ in span["text"]]
     body_size = statistics.median(sizes)
-    max_size = max(span["size"] for span in spans)
+    # Only text with letters or digits can be a title: big bullets or symbols ("• • •") can't.
+    candidates = [span for span in spans if any(c.isalnum() for c in span["text"])]
+    if not candidates:
+        return None
+    max_size = max(span["size"] for span in candidates)
     if max_size < body_size * 1.15:
         return None
-    parts = [span["text"].strip() for span in spans if span["size"] >= max_size - 0.5]
+    parts = [span["text"].strip() for span in candidates if span["size"] >= max_size - 0.5]
     title = normalize_text(" ".join(parts))
     title = re.sub(r"\s+", " ", title)
     return title[:_MAX_TITLE_CHARS] or None
@@ -55,7 +59,7 @@ def guess_title(page: pymupdf.Page) -> str | None:
 
 class PdfLoader:
     name = "pymupdf"
-    version = 1
+    version = 2  # 2: symbol-only text (big bullets) is never a title
     extensions = (".pdf",)
 
     def load(self, path: Path, thumbnails_dir: Path, thumbnail_width: int) -> list[RawPage]:

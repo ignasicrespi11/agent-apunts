@@ -40,7 +40,7 @@ class ExtractedDocument(BaseModel):
     source: str
     rel_path: str
     metadata: DocumentMetadata | None
-    extractor: str  # e.g. 'pymupdf-1'
+    extractor: str  # e.g. 'pymupdf-2'
     languages: list[str]  # page languages, most frequent first
     pages: list[ExtractedPage]
 
