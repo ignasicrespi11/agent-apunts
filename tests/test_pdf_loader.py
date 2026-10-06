@@ -72,3 +72,42 @@ def test_big_bullets_are_not_a_title(tmp_path):
     doc.save(path)
     (page,) = PdfLoader().load(path, tmp_path / "t", 100)
     assert page.title == "High cohesion"
+
+
+def _one_page(tmp_path, draw, rotation=0):
+    doc = pymupdf.open()
+    page = doc.new_page(width=842, height=595)
+    draw(page)
+    page.insert_textbox(
+        pymupdf.Rect(50, 200, 790, 400), "Body text of the slide. " * 8, fontsize=16
+    )
+    page.set_rotation(rotation)
+    path = tmp_path / "page.pdf"
+    doc.save(path)
+    (raw,) = PdfLoader().load(path, tmp_path / "t", 100)
+    return raw
+
+
+def test_big_callout_low_on_the_page_is_not_a_title(tmp_path):
+    # Real case (slides_grasp.pdf p26): a big comment under a code screenshot was the "title".
+    def draw(page):
+        page.insert_text((50, 70), "Expert", fontsize=26)
+        page.insert_text((50, 520), "Is this right ?", fontsize=32)  # bigger, but at the bottom
+
+    assert _one_page(tmp_path, draw).title == "Expert"
+
+
+def test_only_a_low_callout_gives_no_title(tmp_path):
+    def draw(page):
+        page.insert_text((50, 520), "Is this right ?", fontsize=32)
+
+    assert _one_page(tmp_path, draw).title is None
+
+
+def test_title_position_uses_the_visible_page(tmp_path):
+    # Rotated 180 degrees, the text written at the top is shown at the bottom: not a title.
+    def draw(page):
+        page.insert_text((50, 70), "Expert", fontsize=26)
+
+    assert _one_page(tmp_path, draw).title == "Expert"
+    assert _one_page(tmp_path, draw, rotation=180).title is None

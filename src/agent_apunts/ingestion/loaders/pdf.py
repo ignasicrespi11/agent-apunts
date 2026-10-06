@@ -10,6 +10,9 @@ import pymupdf
 from agent_apunts.ingestion.loaders.base import RawPage
 
 _MAX_TITLE_CHARS = 200
+# A title must start in the top 30% of the page. Big text lower down is a callout, not a title
+# (real case: slides_grasp.pdf p26, a big comment under a code screenshot).
+_TITLE_TOP_FRACTION = 0.3
 
 
 def normalize_text(text: str) -> str:
@@ -25,12 +28,19 @@ def normalize_text(text: str) -> str:
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
-def guess_title(page: pymupdf.Page) -> str | None:
-    """Heuristic: the title is the text in the largest font, if that font is clearly larger than
-    the body text (>= 15%). A4 pages written in one font size get None instead of a random line.
+def _in_title_area(span: dict, page: pymupdf.Page) -> bool:
+    # Text coordinates are for the unrotated page; rotation_matrix maps them to what the user sees.
+    top = (pymupdf.Rect(span["bbox"]) * page.rotation_matrix).y0
+    return top < page.rect.height * _TITLE_TOP_FRACTION
 
-    Known weak spots (check with `inspect`): decorative big text (a huge "01"), big callouts in
-    the middle of a slide, titles that are images, headings in bold but the same size as the body.
+
+def guess_title(page: pymupdf.Page) -> str | None:
+    """Heuristic: the title is the largest text in the top 30% of the page, if its font is clearly
+    larger than the body text (>= 15%). Pages in one font size get None instead of a random line:
+    a wrong title is worse than none, because it goes into every chunk's header (D13).
+
+    Known weak spots (check with `inspect`): decorative big text at the top (a huge "01"), titles
+    that are images, headings in bold but the same size as the body (they get None).
     """
     spans = [
         span
@@ -45,7 +55,11 @@ def guess_title(page: pymupdf.Page) -> str | None:
     sizes = [span["size"] for span in spans for _ in span["text"]]
     body_size = statistics.median(sizes)
     # Only text with letters or digits can be a title: big bullets or symbols ("• • •") can't.
-    candidates = [span for span in spans if any(c.isalnum() for c in span["text"])]
+    candidates = [
+        span
+        for span in spans
+        if any(c.isalnum() for c in span["text"]) and _in_title_area(span, page)
+    ]
     if not candidates:
         return None
     max_size = max(span["size"] for span in candidates)
@@ -59,7 +73,8 @@ def guess_title(page: pymupdf.Page) -> str | None:
 
 class PdfLoader:
     name = "pymupdf"
-    version = 2  # 2: symbol-only text (big bullets) is never a title
+    # 2: symbol-only text is never a title. 3: titles only in the top 30% of the page.
+    version = 3
     extensions = (".pdf",)
 
     def load(self, path: Path, thumbnails_dir: Path, thumbnail_width: int) -> list[RawPage]:
