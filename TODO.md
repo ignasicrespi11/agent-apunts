@@ -14,6 +14,10 @@ Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Week 2's code was built early 
   **Languages are per document, not per subject** (IS: ca 47% / en 42% / es 10%) → `languages` list in config; D16 per page.
 - Many near-duplicates (ES/EN translations, statement vs solutions, book with/without solutions) → D19 (phase 2).
 - Image-heavy: ~16% of disseny_software pages have <80 chars (D14 relevant there).
+- First real extraction (2026-10-06, Omarchy): 108 docs, 2,059 pages, 0 errors, register idempotent. 20 pages with
+  no text: exam pages 16–24 of `examen1_2024_25-solucions` are **blank pages** (checked by Ignasi), the rest are
+  blank/separator pages in the problem books → no scanned content found, OCR stays in the parking lot.
+  Title heuristic: bullets taken as title (fixed, loader v2); big callouts mid-slide may be taken as titles (pending).
 
 ## Now — Week 1: foundations
 - [x] Architecture proposal (Opus) → `docs/ARCHITECTURE.md`
