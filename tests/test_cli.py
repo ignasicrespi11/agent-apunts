@@ -228,3 +228,17 @@ def test_doctor_reports_problems_with_fixes(in_project, monkeypatch):
     assert result.exit_code == 1
     assert "docker compose up -d" in result.output and "TESTING_DIR" in result.output
     assert "Pipeline for ignasi: 0 registered" in result.output
+
+
+def test_duplicates_finds_a_reupload(fake_services):
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide", "a4"])
+    make_pdf(corpus / "informacio_i_seguretat" / "exams" / "e.pdf", ["dense"])
+    # Same content plus one extra page: not an exact duplicate (different hash), but near.
+    make_pdf(corpus / "disseny_software" / "labs" / "patrons_v2.pdf", ["slide", "a4", "image"])
+    assert runner.invoke(app, ["ingest"]).exit_code == 0
+    result = runner.invoke(app, ["duplicates", "--min-similarity", "0.95"])
+    assert result.exit_code == 0, result.output
+    assert "patrons_v2.pdf" in result.output and "1 groups" in result.output

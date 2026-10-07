@@ -566,13 +566,10 @@ def _prune(
     _list("removed (manifest, JSON, thumbnails, Qdrant points)", paths)
 
 
-@app.command()
-def detect(
-    evaluate: bool = typer.Option(False, help="Measure accuracy leave-one-out on labelled PDFs."),
-) -> None:
-    """Suggest subject / doc_type / year for unorganised PDFs (D18, D36). Changes nothing."""
-    s = _settings()
-    k = s.detection.sample_chunks
+def _document_vectors(s: Settings):
+    """(records, doc_id -> document vector, doc_id -> first page text) for chunked documents.
+
+    Vectors from header-free chunk samples (D36), shared by `detect` and `duplicates`."""
     texts: dict[str, list[str]] = {}
     first_pages: dict[str, str] = {}
     with Manifest(s.paths.manifest) as manifest:
@@ -584,7 +581,7 @@ def detect(
             continue
         chunk_texts = [c.text for c in read_chunks(chunk_file).chunks]
         if chunk_texts:
-            texts[record.doc_id] = detection.sample_texts(chunk_texts, k)
+            texts[record.doc_id] = detection.sample_texts(chunk_texts, s.detection.sample_chunks)
         pages = read_json(page_file).pages
         first_pages[record.doc_id] = pages[0].text if pages else ""
     if not texts:
@@ -595,6 +592,16 @@ def detect(
     except EmbeddingError as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1) from e
+    return records, vectors, first_pages
+
+
+@app.command()
+def detect(
+    evaluate: bool = typer.Option(False, help="Measure accuracy leave-one-out on labelled PDFs."),
+) -> None:
+    """Suggest subject / doc_type / year for unorganised PDFs (D18, D36). Changes nothing."""
+    s = _settings()
+    records, vectors, first_pages = _document_vectors(s)
 
     labelled = [r for r in records if r.metadata is not None]
     margin = s.detection.min_margin
@@ -661,3 +668,26 @@ def run_doctor() -> None:
     )
     if not all(c.ok for c in checks):
         raise typer.Exit(1)
+
+
+@app.command()
+def duplicates(
+    min_similarity: float = typer.Option(0.9, help="Report document pairs at least this similar."),
+) -> None:
+    """Near-duplicate documents (translations, with/without solutions...): measure before D19."""
+    s = _settings()
+    records, vectors, _ = _document_vectors(s)
+    paths = {r.doc_id: r.rel_path for r in records}
+    pairs = detection.similar_pairs(vectors, min_similarity)
+    if not pairs:
+        console.print(f"No document pairs with similarity >= {min_similarity}.")
+        return
+    table = Table("similarity", "document", "near-duplicate of")
+    for a, b, similarity in pairs:
+        table.add_row(f"{similarity:.3f}", paths[a], paths[b])
+    console.print(table)
+    groups = detection.group_pairs(pairs)
+    console.print(
+        f"{len(pairs)} pairs in {len(groups)} groups. Open a few: translation? solutions? "
+        "same deck twice? This decides how D19 collapses them in search results."
+    )

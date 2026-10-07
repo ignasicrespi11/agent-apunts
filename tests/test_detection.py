@@ -105,3 +105,17 @@ def test_leave_one_out_and_inbox_detection(settings):
     guess = det.detect(inbox_doc, vectors[inbox_doc.doc_id], "", centroids, 0.05)
     assert guess.subject == "arquitectura_computadors" and guess.confident
     assert guess.doc_type is DocType.EXAMS and guess.doc_type_source == "filename"
+
+
+def test_similar_pairs_and_groups():
+    v = {
+        "a": det._unit(np.array([1.0, 0.0, 0.0])),
+        "a2": det._unit(np.array([0.99, 0.05, 0.0])),  # near-duplicate of a
+        "a3": det._unit(np.array([0.97, 0.1, 0.05])),  # near-duplicate of a2
+        "b": det._unit(np.array([0.0, 1.0, 0.0])),
+    }
+    pairs = det.similar_pairs(v, 0.95)
+    assert [(x, y) for x, y, _ in pairs][0] == ("a", "a2")
+    assert all("b" not in (x, y) for x, y, _ in pairs)
+    assert det.group_pairs(pairs) == [{"a", "a2", "a3"}]
+    assert det.similar_pairs({"a": v["a"]}, 0.5) == []

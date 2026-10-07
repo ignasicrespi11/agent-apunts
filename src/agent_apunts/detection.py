@@ -196,3 +196,40 @@ def evaluate_leave_one_out(
         if guess.subject != truth:
             result.mistakes.append((record.rel_path, truth, guess.subject or "-"))
     return result
+
+
+def similar_pairs(
+    doc_vectors: dict[str, np.ndarray], min_similarity: float
+) -> list[tuple[str, str, float]]:
+    """Document pairs whose vectors' cosine similarity is >= min_similarity, most similar first.
+    Input to near-duplicate grouping (D19): translations, statement vs solutions, re-uploads."""
+    ids = sorted(doc_vectors)
+    if len(ids) < 2:
+        return []
+    matrix = np.array([doc_vectors[i] for i in ids])
+    similarity = matrix @ matrix.T  # vectors are unit length: dot product = cosine
+    pairs = [
+        (ids[i], ids[j], round(float(similarity[i, j]), 4))
+        for i in range(len(ids))
+        for j in range(i + 1, len(ids))
+        if similarity[i, j] >= min_similarity
+    ]
+    return sorted(pairs, key=lambda p: -p[2])
+
+
+def group_pairs(pairs: list[tuple[str, str, float]]) -> list[set[str]]:
+    """Connected groups of documents (if A~B and B~C, then {A, B, C}): union-find."""
+    parent: dict[str, str] = {}
+
+    def root(x: str) -> str:
+        while parent.setdefault(x, x) != x:
+            parent[x] = parent[parent[x]]  # path halving keeps the trees flat
+            x = parent[x]
+        return x
+
+    for a, b, _ in pairs:
+        parent[root(a)] = root(b)
+    groups: dict[str, set[str]] = {}
+    for x in parent:
+        groups.setdefault(root(x), set()).add(x)
+    return list(groups.values())
