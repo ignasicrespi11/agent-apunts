@@ -36,6 +36,9 @@ class RegisterReport:
     duplicates: list[tuple[str, str]] = field(default_factory=list)  # (skipped, kept)
     missing: list[str] = field(default_factory=list)  # in the manifest, content no longer found
     errors: list[tuple[str, str]] = field(default_factory=list)  # (rel_path, reason)
+    # For prune (D35): was the folder there to scan, and which contents were found in it.
+    scanned: bool = False
+    seen: set[str] = field(default_factory=set)
 
 
 def _metadata(path: Path, source: Source, settings: Settings) -> DocumentMetadata | None:
@@ -48,7 +51,7 @@ def _metadata(path: Path, source: Source, settings: Settings) -> DocumentMetadat
 def register_source(
     manifest: Manifest, user_id: str, source: Source, settings: Settings
 ) -> RegisterReport:
-    report = RegisterReport()
+    report = RegisterReport(scanned=source.root.is_dir())
     seen: dict[str, str] = {}  # doc_id -> rel_path, within this run
 
     for path in find_files(source.root, supported_extensions()):
@@ -88,6 +91,7 @@ def register_source(
     for record in manifest.documents(user_id, source.name):
         if record.doc_id not in seen:
             report.missing.append(record.rel_path)
+    report.seen = set(seen)
     return report
 
 

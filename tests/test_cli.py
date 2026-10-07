@@ -185,3 +185,18 @@ def test_eval_reports_and_saves_a_run(fake_services):
 def test_eval_without_golden_file(fake_services):
     result = runner.invoke(app, ["eval"])
     assert result.exit_code == 1 and "golden.example.yaml" in result.output
+
+
+def test_prune_registers_first_so_moves_are_not_deleted(fake_services):
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide"])
+    assert runner.invoke(app, ["ingest"]).exit_code == 0
+    (corpus / "disseny_software" / "labs").mkdir()
+    (corpus / "disseny_software" / "theory" / "patrons.pdf").rename(
+        corpus / "disseny_software" / "labs" / "patrons.pdf"
+    )
+    result = runner.invoke(app, ["prune"])  # no explicit register before it
+    assert result.exit_code == 0, result.output
+    assert "Nothing to prune." in result.output and "1 moved" in result.output

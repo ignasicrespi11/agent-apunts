@@ -4,6 +4,11 @@ A deleted PDF, or an edited one (new content = new doc_id, D12), leaves its old 
 manifest row, processed JSON, chunks, thumbnails and Qdrant points. Without pruning, search keeps
 citing a file (or an old version) that isn't there any more. Only derived data is deleted; the
 PDFs themselves are never touched, and everything removed can be rebuilt by `ingest`.
+
+Deleting is only safe on evidence, so orphans are decided from a `register` run over ALL sources:
+a document is an orphan only if its source folder was there and scanned, its content (doc_id) was
+seen nowhere, and its file did not fail to read. An unmounted OneDrive folder or a file locked
+mid-sync therefore never wipes anything.
 """
 
 import shutil
@@ -13,41 +18,49 @@ from agent_apunts.config import Settings
 from agent_apunts.ingestion.chunk import chunks_path
 from agent_apunts.ingestion.extract import processed_path
 from agent_apunts.ingestion.manifest import DocumentRecord, Manifest
-from agent_apunts.ingestion.register import file_hash
+from agent_apunts.ingestion.register import RegisterReport
 from agent_apunts.store import VectorStore
 
 
-def find_orphans(manifest: Manifest, user_id: str, settings: Settings) -> list[DocumentRecord]:
-    """Documents whose recorded file is gone or now has different content.
-
-    Run after `register`: a file that only moved has already been given its new location, so
-    whatever still points to a missing or changed file has no copy left anywhere.
-    """
-    orphans = []
-    for record in manifest.documents(user_id):
-        path = settings.source(record.source).root / record.rel_path
-        if not path.is_file() or file_hash(path) != record.doc_id:
-            orphans.append(record)
-    return orphans
-
-
 @dataclass
-class PruneReport:
-    removed: list[str] = field(default_factory=list)  # rel_paths of forgotten documents
+class Orphans:
+    documents: list[DocumentRecord] = field(default_factory=list)
+    skipped_sources: list[str] = field(default_factory=list)  # folder missing: nothing decided
 
 
-def prune(
+def find_orphans(
+    manifest: Manifest, user_id: str, settings: Settings, scans: dict[str, RegisterReport]
+) -> Orphans:
+    """`scans`: this run's register report per source name (every existing source folder)."""
+    for source in settings.sources:
+        if source.root.is_dir() and source.name not in scans:
+            # A file could have moved into an unscanned folder: we can't tell it from a deletion.
+            raise ValueError(f"register every source before pruning (missing: {source.name})")
+    seen = set().union(*(scan.seen for scan in scans.values()))
+    unreadable = {(name, path) for name, scan in scans.items() for path, _ in scan.errors}
+
+    result = Orphans()
+    for name, scan in scans.items():
+        if not scan.scanned:
+            result.skipped_sources.append(name)
+    for record in manifest.documents(user_id):
+        scan = scans.get(record.source)
+        if scan is None or not scan.scanned:
+            continue  # its folder isn't there (unmounted drive, other machine): keep everything
+        if record.doc_id in seen or (record.source, record.rel_path) in unreadable:
+            continue
+        result.documents.append(record)
+    return result
+
+
+def remove(
     manifest: Manifest,
     user_id: str,
     settings: Settings,
     store: VectorStore,
-    dry_run: bool = False,
-) -> PruneReport:
-    report = PruneReport()
-    for record in find_orphans(manifest, user_id, settings):
-        report.removed.append(record.rel_path)
-        if dry_run:
-            continue
+    orphans: list[DocumentRecord],
+) -> None:
+    for record in orphans:
         # Qdrant first: if it fails, nothing local is deleted and the next run retries cleanly.
         store.delete_document(user_id, record.doc_id)
         processed_path(settings, user_id, record.doc_id).unlink(missing_ok=True)
@@ -56,4 +69,3 @@ def prune(
         if thumbnails.is_dir():
             shutil.rmtree(thumbnails)
         manifest.delete(user_id, record.doc_id)
-    return report

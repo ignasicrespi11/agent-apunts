@@ -14,6 +14,7 @@ from rich.table import Table
 from agent_apunts import evaluation
 from agent_apunts.config import ConfigError, Settings, load_settings
 from agent_apunts.embeddings import EmbeddingError, make_embedder
+from agent_apunts.ingestion import prune as pruning
 from agent_apunts.ingestion.chunk import chunk_all, chunks_path, read_chunks
 from agent_apunts.ingestion.discovery import find_files
 from agent_apunts.ingestion.extract import extract_all, processed_path, read_json
@@ -21,8 +22,7 @@ from agent_apunts.ingestion.image_report import image_report
 from agent_apunts.ingestion.index import index_all
 from agent_apunts.ingestion.loaders import supported_extensions
 from agent_apunts.ingestion.manifest import Manifest
-from agent_apunts.ingestion.prune import prune as prune_orphans
-from agent_apunts.ingestion.register import register_source
+from agent_apunts.ingestion.register import RegisterReport, register_source
 from agent_apunts.llm import LLMError, make_llm
 from agent_apunts.metadata import metadata_from_path
 from agent_apunts.rag import ask as answer_question
@@ -111,30 +111,39 @@ def _list(title: str, items: list, style: str = "yellow", limit: int = 20) -> No
         console.print(f"  ... and {len(items) - limit} more")
 
 
+def _register_all(s: Settings, manifest: Manifest, sources) -> dict[str, RegisterReport]:
+    reports = {}
+    for src in sources:
+        r = register_source(manifest, s.user.id, src, s)
+        reports[src.name] = r
+        if not r.scanned:
+            console.print(f"[bold]{src.name}[/bold]: [yellow]folder not found: {src.root}[/yellow]")
+            continue
+        console.print(
+            f"[bold]{src.name}[/bold]: {len(r.new)} new, {len(r.unchanged)} unchanged, "
+            f"{len(r.moved)} moved, {len(r.duplicates)} duplicates, "
+            f"{len(r.missing)} missing, {len(r.errors)} errors"
+        )
+        _list("moved or relabelled (old -> new)", r.moved, "cyan")
+        _list("duplicates, skipped (file -> kept copy)", r.duplicates)
+        _list("missing: in the manifest but not on disk (`prune` removes them)", r.missing)
+        _list("errors", r.errors, "red")
+    return reports
+
+
 @app.command()
 def register(
     source: str = typer.Option("all", help="Source to scan: testing, apunts or all."),
 ) -> None:
     """Stage 1: give every file a content-hash ID and record it in the manifest. Safe to re-run."""
     s = _settings()
-    user_id = s.user.id
     try:
         sources = s.sources if source == "all" else (s.source(source),)
     except KeyError as e:
         console.print(f"[red]{e.args[0]}[/red]")
         raise typer.Exit(1) from e
     with Manifest(s.paths.manifest) as manifest:
-        for src in sources:
-            r = register_source(manifest, user_id, src, s)
-            console.print(
-                f"[bold]{src.name}[/bold]: {len(r.new)} new, {len(r.unchanged)} unchanged, "
-                f"{len(r.moved)} moved, {len(r.duplicates)} duplicates, "
-                f"{len(r.missing)} missing, {len(r.errors)} errors"
-            )
-            _list("moved or relabelled (old -> new)", r.moved, "cyan")
-            _list("duplicates, skipped (file -> kept copy)", r.duplicates)
-            _list("missing: in the manifest but not on disk (`prune` removes them)", r.missing)
-            _list("errors", r.errors, "red")
+        _register_all(s, manifest, sources)
 
 
 @app.command()
@@ -293,12 +302,14 @@ def index(
 
 @app.command()
 def ingest(force: bool = typer.Option(False, help="Redo every stage for every document.")) -> None:
-    """All stages in order: register -> extract -> chunk -> index. Only new work is done."""
+    """All stages: register -> prune -> extract -> chunk -> index. Only new work is done."""
     # Called as plain functions, Typer commands get no defaults filled in: pass every argument.
+    s = _settings()
     console.rule("register")
-    register(source="all")
-    console.rule("prune")
-    prune(dry_run=False)
+    with Manifest(s.paths.manifest) as manifest:
+        scans = _register_all(s, manifest, s.sources)
+        console.rule("prune")
+        _prune(s, manifest, scans, dry_run=False, strict=False)
     console.rule("extract")
     extract(force=force)
     console.rule("chunk")
@@ -517,11 +528,38 @@ def _pct(value: float | None) -> str:
 def prune(
     dry_run: bool = typer.Option(False, help="Only list what would be removed."),
 ) -> None:
-    """Forget documents whose PDF was deleted or replaced (D35). Never touches the PDFs."""
+    """Forget documents whose PDF was deleted or replaced (D35). Never touches the PDFs.
+
+    Runs `register` on every source first: only content seen nowhere is pruned."""
     s = _settings()
-    store = _store(s)
     with Manifest(s.paths.manifest) as manifest:
-        r = prune_orphans(manifest, s.user.id, s, store, dry_run=dry_run)
-    verb = "would be removed" if dry_run else "removed (manifest, JSON, thumbnails, Qdrant points)"
-    console.print(f"{len(r.removed)} documents {verb}.")
-    _list("documents whose file is gone or was replaced", r.removed)
+        scans = _register_all(s, manifest, s.sources)
+        _prune(s, manifest, scans, dry_run=dry_run, strict=True)
+
+
+def _prune(
+    s: Settings, manifest: Manifest, scans: dict[str, RegisterReport], dry_run: bool, strict: bool
+) -> None:
+    orphans = pruning.find_orphans(manifest, s.user.id, s, scans)
+    for name in orphans.skipped_sources:
+        console.print(
+            f"[yellow]{name}: folder not found, its documents are kept as they are.[/yellow]"
+        )
+    paths = [r.rel_path for r in orphans.documents]
+    if not paths:
+        console.print("Nothing to prune.")
+        return
+    if dry_run:
+        _list("would be removed (file deleted or replaced)", paths)
+        return
+    try:
+        store = _store(s)
+    except typer.Exit:
+        if strict:
+            raise
+        console.print(
+            "[yellow]Prune skipped (Qdrant not reachable); the other stages go on.[/yellow]"
+        )
+        return
+    pruning.remove(manifest, s.user.id, s, store, orphans.documents)
+    _list("removed (manifest, JSON, thumbnails, Qdrant points)", paths)
