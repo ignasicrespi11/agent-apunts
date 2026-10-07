@@ -84,14 +84,13 @@ def image_coverage(page: pymupdf.Page) -> float:
     boxes = [pymupdf.Rect(info["bbox"]) for info in page.get_image_info()]
     if not boxes:
         return 0.0
-    box = page.cropbox  # image boxes use the unrotated page's coordinates
-    width, height = box.width, box.height
+    # Image boxes are in the unrotated visible area's coordinates, starting at (0, 0) even when
+    # the PDF's CropBox is offset: sample that area, not the CropBox's absolute position.
+    width, height = page.cropbox.width, page.cropbox.height
     covered = 0
     for i in range(_GRID):
         for j in range(_GRID):
-            point = pymupdf.Point(
-                box.x0 + (i + 0.5) * width / _GRID, box.y0 + (j + 0.5) * height / _GRID
-            )
+            point = pymupdf.Point((i + 0.5) * width / _GRID, (j + 0.5) * height / _GRID)
             covered += any(point in r for r in boxes)
     return round(covered / _GRID**2, 3)
 
@@ -99,8 +98,8 @@ def image_coverage(page: pymupdf.Page) -> float:
 class PdfLoader:
     name = "pymupdf"
     # 2: symbol-only text is never a title. 3: titles only in the top 30% of the page.
-    # 4: image_coverage per page (D30).
-    version = 4
+    # 4: image_coverage per page (D30). 5: coverage correct on PDFs with an offset CropBox.
+    version = 5
     extensions = (".pdf",)
 
     def load(self, path: Path, thumbnails_dir: Path, thumbnail_width: int) -> list[RawPage]:

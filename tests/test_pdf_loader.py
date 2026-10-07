@@ -131,3 +131,16 @@ def test_overlapping_images_are_not_counted_twice(tmp_path):
     doc.save(path)
     (raw,) = PdfLoader().load(path, tmp_path / "t", 100)
     assert raw.image_coverage == 1.0
+
+
+def test_image_coverage_with_offset_cropbox(tmp_path):
+    # Found by review: cropped PDFs reported 0% coverage for a full-page image.
+    doc = pymupdf.open()
+    page = doc.new_page(width=600, height=800)
+    page.set_cropbox(pymupdf.Rect(300, 400, 600, 800))
+    pix = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 40, 30), False)
+    page.insert_image(page.rect, pixmap=pix, keep_proportion=False)
+    path = tmp_path / "cropped.pdf"
+    doc.save(path)
+    (raw,) = PdfLoader().load(path, tmp_path / "t", 100)
+    assert raw.image_coverage == 1.0

@@ -39,7 +39,8 @@ def image_report(manifest: Manifest, user_id: str, settings: Settings) -> ImageR
             report.not_extracted += 1
             continue
         doc = read_json(path)
-        subject = doc.metadata.subject if doc.metadata else "(unorganised)"
+        # Subject from the manifest (source of truth): the JSON's copy is stale after a move.
+        subject = record.metadata.subject if record.metadata else "(unorganised)"
         stats = report.by_subject[subject]
         hidden = []
         for page in doc.pages:
