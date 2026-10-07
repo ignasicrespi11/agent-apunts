@@ -84,7 +84,7 @@ def register_source(
             report.unchanged.append(rel_path)
 
     # No file in this source has this content any more: deleted, or edited (new content = new ID).
-    # Only reported: removing a document from the index is a deliberate action (later: --prune).
+    # Only reported here; `prune` (D35, run by `ingest`) removes their derived data.
     for record in manifest.documents(user_id, source.name):
         if record.doc_id not in seen:
             report.missing.append(record.rel_path)

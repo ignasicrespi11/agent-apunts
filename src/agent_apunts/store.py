@@ -126,6 +126,13 @@ class VectorStore:
         self._client.delete(self.collection, points_selector=models.FilterSelector(filter=stale))
         return len(points)
 
+    def delete_document(self, user_id: str, doc_id: str) -> None:
+        """Remove every point of one document of one user (used by prune)."""
+        if not self._client.collection_exists(self.collection):
+            return
+        selector = models.FilterSelector(filter=_user_filter(user_id, doc_id=doc_id))
+        self._client.delete(self.collection, points_selector=selector, wait=True)
+
     def count(self, user_id: str, doc_id: str | None = None) -> int:
         result = self._client.count(
             self.collection, count_filter=_user_filter(user_id, doc_id=doc_id), exact=True

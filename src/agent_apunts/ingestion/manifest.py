@@ -151,6 +151,13 @@ class Manifest:
                 (source, rel_path, _dump(metadata), _now(), user_id, doc_id),
             )
 
+    def delete(self, user_id: str, doc_id: str) -> None:
+        """Forget a document; its stage rows go too (ON DELETE CASCADE)."""
+        with self._conn:
+            self._conn.execute(
+                "DELETE FROM documents WHERE user_id = ? AND doc_id = ?", (user_id, doc_id)
+            )
+
     # --- stages ------------------------------------------------------------------------------
 
     def stage(self, user_id: str, doc_id: str, stage: str) -> StageRecord | None:

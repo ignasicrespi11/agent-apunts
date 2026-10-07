@@ -21,6 +21,7 @@ from agent_apunts.ingestion.image_report import image_report
 from agent_apunts.ingestion.index import index_all
 from agent_apunts.ingestion.loaders import supported_extensions
 from agent_apunts.ingestion.manifest import Manifest
+from agent_apunts.ingestion.prune import prune as prune_orphans
 from agent_apunts.ingestion.register import register_source
 from agent_apunts.llm import LLMError, make_llm
 from agent_apunts.metadata import metadata_from_path
@@ -296,6 +297,8 @@ def ingest(force: bool = typer.Option(False, help="Redo every stage for every do
     # Called as plain functions, Typer commands get no defaults filled in: pass every argument.
     console.rule("register")
     register(source="all")
+    console.rule("prune")
+    prune(dry_run=False)
     console.rule("extract")
     extract(force=force)
     console.rule("chunk")
@@ -508,3 +511,17 @@ def evaluate(
 
 def _pct(value: float | None) -> str:
     return "-" if value is None else f"{value:.0%}"
+
+
+@app.command()
+def prune(
+    dry_run: bool = typer.Option(False, help="Only list what would be removed."),
+) -> None:
+    """Forget documents whose PDF was deleted or replaced (D35). Never touches the PDFs."""
+    s = _settings()
+    store = _store(s)
+    with Manifest(s.paths.manifest) as manifest:
+        r = prune_orphans(manifest, s.user.id, s, store, dry_run=dry_run)
+    verb = "would be removed" if dry_run else "removed (manifest, JSON, thumbnails, Qdrant points)"
+    console.print(f"{len(r.removed)} documents {verb}.")
+    _list("documents whose file is gone or was replaced", r.removed)
