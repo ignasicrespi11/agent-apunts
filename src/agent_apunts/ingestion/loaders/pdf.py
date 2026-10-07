@@ -5,6 +5,7 @@ import statistics
 import unicodedata
 from pathlib import Path
 
+import numpy as np
 import pymupdf
 
 from agent_apunts.ingestion.loaders.base import RawPage
@@ -81,18 +82,21 @@ def image_coverage(page: pymupdf.Page) -> float:
     extraction can't: is there content we are not reading (a code screenshot, a diagram)?
     Vector drawings (shapes drawn by PowerPoint) are not images and are not counted.
     """
-    boxes = [pymupdf.Rect(info["bbox"]) for info in page.get_image_info()]
+    boxes = [info["bbox"] for info in page.get_image_info()]
     if not boxes:
         return 0.0
     # Image boxes are in the unrotated visible area's coordinates, starting at (0, 0) even when
     # the PDF's CropBox is offset: sample that area, not the CropBox's absolute position.
     width, height = page.cropbox.width, page.cropbox.height
-    covered = 0
-    for i in range(_GRID):
-        for j in range(_GRID):
-            point = pymupdf.Point((i + 0.5) * width / _GRID, (j + 0.5) * height / _GRID)
-            covered += any(point in r for r in boxes)
-    return round(covered / _GRID**2, 3)
+    # Grid of sample points (cell centres), tested against every box at once with numpy:
+    # a third of extraction time was spent on a pure-Python version of this loop.
+    xs, ys = np.meshgrid(
+        (np.arange(_GRID) + 0.5) * width / _GRID, (np.arange(_GRID) + 0.5) * height / _GRID
+    )
+    covered = np.zeros_like(xs, dtype=bool)
+    for x0, y0, x1, y1 in boxes:
+        covered |= (xs >= x0) & (xs < x1) & (ys >= y0) & (ys < y1)
+    return round(float(covered.mean()), 3)
 
 
 class PdfLoader:
