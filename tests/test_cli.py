@@ -100,11 +100,12 @@ def fake_services(monkeypatch, in_project):
 
     from agent_apunts import cli
     from agent_apunts.store import VectorStore
-    from tests.fakes import HashEmbedder
+    from tests.fakes import HashEmbedder, ScriptedLLM
 
     embedder = HashEmbedder()
     store = VectorStore(QdrantClient(":memory:"), "apunts", embedder.model, embedder.dimension)
     monkeypatch.setattr(cli, "make_embedder", lambda settings: embedder)
+    monkeypatch.setattr(cli, "make_llm", lambda settings: ScriptedLLM("Notifica els canvis [1]."))
     monkeypatch.setattr(cli.VectorStore, "from_settings", classmethod(lambda cls, s: store))
     return in_project
 
@@ -132,3 +133,20 @@ def test_ingest_then_search(fake_services):
 def test_search_unknown_subject(fake_services):
     result = runner.invoke(app, ["search", "x", "--subject", "nope"])
     assert result.exit_code == 1 and "Unknown subject" in result.output
+
+
+def test_ask_answers_cites_and_logs(fake_services):
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide"])
+    settings_file = fake_services / "config" / "settings.yaml"
+    settings_file.write_text(settings_file.read_text().replace("min_score: 0.45", "min_score: 0.0"))
+    assert runner.invoke(app, ["ingest"]).exit_code == 0
+
+    result = runner.invoke(app, ["ask", "Què fa el patró observador?"])
+    assert result.exit_code == 0, result.output
+    assert "Notifica els canvis [1]." in result.output
+    assert "yes" in result.output  # source [1] marked as cited
+    log = (fake_services / "logs" / "queries.jsonl").read_text(encoding="utf-8")
+    assert '"user_id": "ignasi"' in log

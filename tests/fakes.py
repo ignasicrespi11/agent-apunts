@@ -27,3 +27,19 @@ class HashEmbedder:
             vector[0] += 1e-6  # never all-zero (cosine is undefined for a zero vector)
             vectors.append(vector)
         return vectors
+
+
+class ScriptedLLM:
+    """Returns pre-written answers and records every prompt (to check what the model was sent)."""
+
+    model = "fake-llm"
+
+    def __init__(self, *answers: str) -> None:
+        self._answers = list(answers)
+        self.prompts: list[tuple[str, str]] = []
+
+    def complete(self, system: str, user: str):
+        from agent_apunts.llm import LLMResponse
+
+        self.prompts.append((system, user))
+        return LLMResponse(text=self._answers.pop(0), model=self.model, latency_ms=1)

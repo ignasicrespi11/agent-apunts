@@ -56,7 +56,19 @@ embedding:
 qdrant:
   collection: apunts
 
-# Provisional: the local model is chosen in week 4 by running the eval (D4, D8).
+# Retrieval for `ask` (D32). min_score is provisional: calibrate it with `agent-apunts eval --sweep`.
+# If the best chunk scores below it, `ask` abstains without calling the LLM.
+retrieval:
+  top_k: 5
+  min_score: 0.45
+
+# Local LLM via Ollama (D4, D31): `ollama pull qwen2.5:7b`. Provisional model, chosen with the eval.
+# temperature 0: repeatable answers (eval). num_ctx: tokens the model sees (5 sources + rules fit).
 llm:
   provider: ollama
   model: qwen2.5:7b
+  temperature: 0
+  num_ctx: 8192
+
+# Query log (D33): one JSON line per question, with user_id. Gitignored: it contains your questions.
+logs_dir: logs

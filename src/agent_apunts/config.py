@@ -46,6 +46,7 @@ class Paths(_Strict):
     apunts_dir: Path  # inbox of real material
     testing_dir: Path  # manually labelled set (dev corpus + ground truth)
     data_dir: Path  # stage outputs
+    logs_dir: Path  # query log (D33)
 
     @property
     def manifest(self) -> Path:
@@ -107,8 +108,15 @@ class QdrantSettings(_Strict):
 
 
 class LLMSettings(_Strict):
-    provider: Literal["ollama", "anthropic"]
+    provider: Literal["ollama"]  # only free, local providers are implemented (D31)
     model: str
+    temperature: float = Field(ge=0, le=2)
+    num_ctx: int = Field(gt=0)
+
+
+class RetrievalSettings(_Strict):
+    top_k: int = Field(gt=0)
+    min_score: float = Field(ge=-1, le=1)  # cosine similarity
 
 
 class Source(_Strict):
@@ -133,6 +141,7 @@ class Settings(_Strict):
     embedding: EmbeddingSettings
     qdrant: QdrantSettings
     ollama: OllamaSettings
+    retrieval: RetrievalSettings
     llm: LLMSettings
     subjects: dict[Slug, Subject]
 
@@ -211,11 +220,13 @@ def load_settings(project_root: Path | None = None) -> Settings:
     env = _read_env(root)
 
     data_dir = raw.pop("data_dir", "data")
+    logs_dir = raw.pop("logs_dir", "logs")
     raw["paths"] = {
         "project_root": root,
         "apunts_dir": _resolve(env["APUNTS_DIR"], root),
         "testing_dir": _resolve(env["TESTING_DIR"], root),
         "data_dir": _resolve(data_dir, root),
+        "logs_dir": _resolve(logs_dir, root),
     }
     raw.setdefault("qdrant", {})["url"] = env["QDRANT_URL"]
     raw["ollama"] = {"url": env["OLLAMA_URL"]}

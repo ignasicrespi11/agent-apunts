@@ -12,7 +12,7 @@ from rich.console import Console
 from rich.table import Table
 
 from agent_apunts.config import ConfigError, Settings, load_settings
-from agent_apunts.embeddings import make_embedder
+from agent_apunts.embeddings import EmbeddingError, make_embedder
 from agent_apunts.ingestion.chunk import chunk_all, chunks_path, read_chunks
 from agent_apunts.ingestion.discovery import find_files
 from agent_apunts.ingestion.extract import extract_all, processed_path, read_json
@@ -21,7 +21,10 @@ from agent_apunts.ingestion.index import index_all
 from agent_apunts.ingestion.loaders import supported_extensions
 from agent_apunts.ingestion.manifest import Manifest
 from agent_apunts.ingestion.register import register_source
+from agent_apunts.llm import LLMError, make_llm
 from agent_apunts.metadata import metadata_from_path
+from agent_apunts.rag import ask as answer_question
+from agent_apunts.rag import log_answer
 from agent_apunts.retrieval import search as retrieve
 from agent_apunts.store import StoreError, VectorStore
 
@@ -364,3 +367,47 @@ def images(top: int = typer.Option(15, help="How many documents to list.")) -> N
     )
     if r.not_extracted:
         console.print(f"{r.not_extracted} documents not extracted yet (run `extract`).")
+
+
+@app.command()
+def ask(
+    question: str = typer.Argument(help="Your question, in Catalan, Spanish or English."),
+    subject: str | None = typer.Option(None, help="Only this subject (folder name)."),
+    doc_type: str | None = typer.Option(None, help="Only this doc_type (theory, exams...)."),
+) -> None:
+    """Answer from your notes only, citing document and page; abstain if they don't say (D32)."""
+    s = _settings()
+    if subject is not None and subject not in s.subjects:
+        console.print(f"[red]Unknown subject {subject!r}[/red] (known: {', '.join(s.subjects)})")
+        raise typer.Exit(1)
+    try:
+        answer = answer_question(
+            question, s.user.id, s, make_embedder(s), _store(s), make_llm(s), subject, doc_type
+        )
+    except (EmbeddingError, LLMError) as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from e
+    log_answer(answer, s.paths.logs_dir)
+
+    console.print(answer.answer, markup=False, highlight=False)
+    if answer.abstained:
+        best = f"{answer.sources[0].score:.3f}" if answer.sources else "-"
+        console.print(
+            f"[dim](abstained: {answer.reason}; best score {best}, "
+            f"min_score {s.retrieval.min_score})[/dim]"
+        )
+    elif answer.uncited:
+        console.print("[yellow]Warning: the answer cites no source. Don't trust it.[/yellow]")
+    console.print()
+    table = Table("n", "cited", "score", "document", "page")
+    for src in answer.sources:
+        table.add_row(
+            f"[{src.number}]",
+            "yes" if src.number in answer.cited else "",
+            f"{src.score:.3f}",
+            src.rel_path,
+            str(src.page),
+        )
+    console.print(table)
+    if answer.model:
+        console.print(f"[dim]{answer.model}, {answer.latency_ms / 1000:.1f} s[/dim]")
