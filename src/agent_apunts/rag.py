@@ -82,15 +82,16 @@ def build_user_prompt(question: str, hits: list[Hit]) -> str:
     return f"Sources:\n\n{format_sources(hits)}\n\nQuestion: {question}"
 
 
-# A citation bracket must not follow a name, digit or closing paren: "v[1]", "buf[2]", "f(x)[0]"
-# are code. It may follow another citation: "[1][3]".
-_CITATION = re.compile(r"(?<![\w)])\[([\d,\s]+)\]")
+_CITATION = re.compile(r"\[([\d,\s]+)\]")
+# Code the model copies from the slides (`v[1] = x`, fenced blocks) holds brackets that are not
+# citations. Code spans are removed before parsing; prose like "the TLB[1]" or "(TLB)[2]" is kept.
+_CODE = re.compile(r"```.*?```|`[^`\n]*`", re.DOTALL)
 
 
 def parse_citations(text: str, n_sources: int) -> list[int]:
     """Source numbers cited as [n] (also [1, 3] or [1][3]), valid ones only, first use first."""
     cited: list[int] = []
-    for group in _CITATION.findall(text):
+    for group in _CITATION.findall(_CODE.sub(" ", text)):
         for number in re.findall(r"\d+", group):
             n = int(number)
             if 1 <= n <= n_sources and n not in cited:
@@ -100,9 +101,13 @@ def parse_citations(text: str, n_sources: int) -> list[int]:
 
 def is_not_found(text: str) -> bool:
     """The model's "the sources don't say", tolerating how models actually write it:
-    **NOT_FOUND**, `NOT_FOUND`, "NOT FOUND", or a short sentence ending with it."""
-    plain = re.sub(r"[*`_\s.!]+", " ", text).strip().upper()
-    return plain.startswith("NOT FOUND") or plain.endswith("NOT FOUND")
+    **NOT_FOUND**, `NOT_FOUND`, a bare "NOT FOUND", or a sentence ending with the NOT_FOUND token.
+    Only the exact token (with underscore) counts inside a sentence, so a real answer such as
+    "the server returns 404 Not Found." is not mistaken for an abstention."""
+    plain = re.sub(r"[*`\s.!]+", " ", text).strip().upper()
+    if plain in {NOT_FOUND, "NOT FOUND"}:
+        return True
+    return plain.startswith(NOT_FOUND) or plain.endswith(NOT_FOUND)
 
 
 def _sources(hits: list[Hit]) -> list[Source]:

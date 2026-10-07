@@ -119,3 +119,35 @@ def test_similar_pairs_and_groups():
     assert all("b" not in (x, y) for x, y, _ in pairs)
     assert det.group_pairs(pairs) == [{"a", "a2", "a3"}]
     assert det.similar_pairs({"a": v["a"]}, 0.5) == []
+
+
+def test_single_subject_is_never_confident():
+    from agent_apunts.ingestion.manifest import DocumentRecord
+
+    record = DocumentRecord(
+        user_id="u",
+        doc_id="d",
+        source="apunts",
+        rel_path="x.pdf",
+        size_bytes=1,
+        metadata=None,
+        registered_at="",
+        updated_at="",
+    )
+    centroids = {"only": np.array([1.0, 0.0])}
+    guess = det.detect(record, det._unit(np.array([1.0, 0.1])), "", centroids, 0.05)
+    assert guess.subject == "only" and guess.margin == 0.0 and not guess.confident
+
+
+def test_document_vectors_are_cached(tmp_path):
+    from tests.fakes import HashEmbedder
+
+    embedder = HashEmbedder()
+    cache = tmp_path / "cache.json"
+    first = det.document_vectors({"a": ["x y"], "b": ["z w"]}, embedder, cache)
+    assert embedder.calls == 1
+    again = det.document_vectors({"a": ["x y"], "b": ["z w"]}, embedder, cache)
+    assert embedder.calls == 1  # nothing re-embedded
+    assert np.allclose(first["a"], again["a"], atol=1e-5)
+    det.document_vectors({"a": ["x y"], "b": ["changed"]}, embedder, cache)
+    assert embedder.calls == 2  # only the changed document

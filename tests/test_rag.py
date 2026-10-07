@@ -101,8 +101,9 @@ def test_other_users_notes_are_never_used(settings, indexed):
         ("A [4] and [0].", 3, []),
         ("No citations.", 3, []),
         ("Array a[i] in code [2].", 3, [2]),
-        ("v[1] = x; buf[2] = y;", 3, []),  # code subscripts are not citations
-        ("call f(x)[0] then g [3]", 3, [3]),
+        ("`v[1] = x; buf[2] = y;`", 3, []),  # code spans are not citations
+        ("```\nv[1] = 0\n```\nArrays start at 0 [3].", 3, [3]),  # nor fenced code
+        ("The TLB[1] caches entries (TLB)[2].", 3, [1, 2]),  # prose glued to a word: kept
         ("Two sources.[1][2]", 3, [1, 2]),
     ],
 )
@@ -145,6 +146,8 @@ def test_abstention_message_follows_short_questions(settings, indexed, question,
         ("Les fonts no ho diuen. NOT_FOUND", True),
         ("El patró Observer notifica els observadors [1].", False),
         ("A 404 NOT_FOUND status means the page is missing [2].", False),
+        ("The server returns the status 404 Not Found.", False),
+        ("Not found.", True),
     ],
 )
 def test_is_not_found(text, expected):

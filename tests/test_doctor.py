@@ -52,3 +52,25 @@ def test_sources_and_counts(settings):
         "index": 0,
     }
     assert not settings.paths.manifest.exists()  # counting doesn't create an empty manifest
+
+
+def test_qdrant_old_schema_is_reported(settings):
+    from qdrant_client import models
+
+    client = QdrantClient(":memory:")
+    client.create_collection(
+        settings.qdrant.collection,
+        vectors_config=models.VectorParams(size=1024, distance=models.Distance.COSINE),
+        metadata={"embedding_model": settings.embedding.model, "dimension": 1024},
+    )
+    (check,) = doctor.check_qdrant(settings, client)
+    assert not check.ok and "older layout" in check.detail
+
+
+def test_something_else_on_the_ollama_port(settings):
+    transport = httpx.MockTransport(lambda r: httpx.Response(200, text="<html>hi</html>"))
+    (check,) = doctor.check_ollama(settings, transport)
+    assert not check.ok and "is not Ollama" in check.detail
+    transport = httpx.MockTransport(lambda r: httpx.Response(404, text="nope"))
+    (check,) = doctor.check_ollama(settings, transport)
+    assert not check.ok and "not reachable" in check.detail

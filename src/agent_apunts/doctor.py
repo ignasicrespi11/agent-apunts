@@ -13,6 +13,7 @@ from agent_apunts.config import Settings
 from agent_apunts.ingestion.discovery import find_files
 from agent_apunts.ingestion.loaders import supported_extensions
 from agent_apunts.ingestion.manifest import Manifest
+from agent_apunts.store import SCHEMA
 
 STAGES = ("extract", "chunk", "index")
 
@@ -49,12 +50,16 @@ def check_sources(settings: Settings) -> list[Check]:
 
 def check_ollama(settings: Settings, transport: httpx.BaseTransport | None = None) -> list[Check]:
     url = settings.ollama.url
+    fix = "start the Ollama app (Windows) or `sudo systemctl start ollama` (Omarchy)"
     try:
         with httpx.Client(base_url=url, timeout=5, transport=transport) as client:
-            tags = client.get("/api/tags").json()
+            response = client.get("/api/tags")
+        response.raise_for_status()
+        tags = response.json()
     except httpx.HTTPError:
-        fix = "start the Ollama app (Windows) or `sudo systemctl start ollama` (Omarchy)"
         return [Check("ollama", False, f"not reachable at {url}", fix)]
+    except ValueError:  # something answers, but not Ollama (HTML page, other service)
+        return [Check("ollama", False, f"{url} answers but is not Ollama", "check OLLAMA_URL")]
     names = _model_names(tags)
     checks = [Check("ollama", True, f"{url} ({len(tags.get('models', []))} models)")]
     for role, model in (("embedding model", settings.embedding.model), ("LLM", settings.llm.model)):
@@ -70,16 +75,20 @@ def check_qdrant(settings: Settings, client: QdrantClient | None = None) -> list
     name = settings.qdrant.collection
     try:
         exists = client.collection_exists(name)
+        info = client.get_collection(name) if exists else None
     except Exception:  # noqa: BLE001 (connection errors come in several types)
         return [
             Check(
                 "qdrant", False, f"not reachable at {settings.qdrant.url}", "docker compose up -d"
             )
         ]
-    if not exists:
+    if info is None:
         return [Check("qdrant", True, f"collection '{name}' not created yet (run `index`)")]
-    info = client.get_collection(name)
     stored = info.config.metadata or {}
+    if stored.get("schema") != SCHEMA:
+        fix = "delete it in the Qdrant dashboard (or new qdrant.collection) and run `index`"
+        detail = f"collection '{name}' has an older layout (schema {stored.get('schema', 1)})"
+        return [Check("qdrant", False, detail, fix)]
     expected = (settings.embedding.model, settings.embedding.dimension)
     same = (stored.get("embedding_model"), stored.get("dimension")) == expected
     detail = (

@@ -11,15 +11,19 @@ Folder hints always win (D18). For a PDF dropped in the inbox without folders:
 - doc_type: keywords in the file name, then in the first page (ca/es/en), else "theory".
 - academic_year: from the file name (metadata.year_from_filename).
 
-No LLM: free, fast, deterministic, and it reuses the embeddings already in Qdrant. Accuracy is
-measured leave-one-out on the labelled set: each labelled document is predicted as if it were
-unorganised, with centroids built from all the OTHER documents.
+No LLM: free and deterministic. It embeds a few header-free samples per document (one batched
+call) and caches each document vector by content + model, so only new or changed documents cost
+anything on later runs. Accuracy is measured leave-one-out on the labelled set: each labelled
+document is predicted as if it were unorganised, with centroids built from all the OTHER documents.
 """
 
+import hashlib
+import json
 import re
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
+from pathlib import Path
 
 import numpy as np
 
@@ -72,16 +76,34 @@ def sample_texts(texts: list[str], k: int) -> list[str]:
     return [texts[round(i * step)] for i in range(k)]
 
 
+def _cache_key(model: str, texts: list[str]) -> str:
+    return hashlib.sha256("\x00".join([model, *texts]).encode()).hexdigest()[:24]
+
+
 def document_vectors(
-    texts_by_doc: dict[str, list[str]], embedder: Embedder
+    texts_by_doc: dict[str, list[str]], embedder: Embedder, cache_path: Path | None = None
 ) -> dict[str, np.ndarray]:
-    """doc_id -> document vector, embedding every sampled text in one batched call."""
-    order = [(doc_id, t) for doc_id, texts in texts_by_doc.items() for t in texts]
+    """doc_id -> document vector. Cached by (model, sampled texts): unchanged documents are not
+    re-embedded; the rest go to the embedder in one batched call."""
+    cache: dict[str, list[float]] = {}
+    if cache_path and cache_path.is_file():
+        cache = json.loads(cache_path.read_text(encoding="utf-8"))
+    keys = {doc_id: _cache_key(embedder.model, texts) for doc_id, texts in texts_by_doc.items()}
+    missing = [d for d in texts_by_doc if keys[d] not in cache]
+    order = [(doc_id, t) for doc_id in missing for t in texts_by_doc[doc_id]]
     vectors = embedder.embed([t for _, t in order]) if order else []
     grouped: dict[str, list[list[float]]] = {}
     for (doc_id, _), vector in zip(order, vectors, strict=True):
         grouped.setdefault(doc_id, []).append(vector)
-    return {doc_id: document_vector(vs) for doc_id, vs in grouped.items()}
+    for doc_id, vs in grouped.items():
+        cache[keys[doc_id]] = [round(float(x), 6) for x in document_vector(vs)]
+    if cache_path and grouped:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        live = {keys[d] for d in texts_by_doc}  # forget vectors of deleted/changed documents
+        tmp = cache_path.with_suffix(".tmp")
+        tmp.write_text(json.dumps({k: v for k, v in cache.items() if k in live}), encoding="utf-8")
+        tmp.replace(cache_path)
+    return {d: np.array(cache[keys[d]], dtype=np.float32) for d in texts_by_doc if keys[d] in cache}
 
 
 def _unit(vector: np.ndarray) -> np.ndarray:
@@ -136,8 +158,9 @@ def detect(
     doc_type, source = guess_doc_type(filename, first_page)
     ranking = rank_subjects(vector, centroids) if vector is not None and centroids else []
     subject, score = ranking[0] if ranking else (None, 0.0)
-    # With a single subject there is nothing to tell apart: margin = its own similarity.
-    margin = score - ranking[1][1] if len(ranking) > 1 else score
+    # A margin needs a second subject: with only one there is nothing to rule out, so the guess
+    # is never confident (margin 0), whatever the similarity.
+    margin = score - ranking[1][1] if len(ranking) > 1 else 0.0
     return Detection(
         doc_id=record.doc_id,
         rel_path=record.rel_path,

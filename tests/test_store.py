@@ -218,3 +218,21 @@ def test_collection_with_old_schema_is_refused(client):
     )
     with pytest.raises(StoreError, match="older layout"):
         VectorStore(client, "old", "fake-hash", 64).ensure_collection()
+
+
+def test_payload_update_failure_is_reported_not_fatal(manifest, settings, embedder, store):
+    _index(manifest, settings, embedder, store)
+    root = settings.source("testing").root
+    target = root / "disseny_software" / "labs" / "patrons.pdf"
+    target.parent.mkdir(parents=True)
+    (root / "disseny_software" / "theory" / "patrons.pdf").rename(target)
+    register_source(manifest, USER, settings.source("testing"), settings)
+    chunk_all(manifest, USER, settings)
+
+    def broken(doc):
+        raise RuntimeError("qdrant timeout")
+
+    store.update_document_payload = broken
+    report = _index(manifest, settings, embedder, store)
+    assert report.errors == [("disseny_software/labs/patrons.pdf", "RuntimeError: qdrant timeout")]
+    assert len(report.up_to_date) == 1  # the other document is still processed

@@ -81,7 +81,11 @@ def index_all(
             and store.count(user_id, record.doc_id) == len(doc.chunks)
         ):
             # Same vectors, new path/metadata: rewrite the payload only.
-            store.update_document_payload(doc)
+            try:
+                store.update_document_payload(doc)
+            except Exception as e:  # noqa: BLE001 (one bad document must not stop the run)
+                report.errors.append((record.rel_path, f"{type(e).__name__}: {e}"))
+                continue
             manifest.mark_done(user_id, record.doc_id, STAGE, version, done.output)
             report.payload_only.append(record.rel_path)
             continue

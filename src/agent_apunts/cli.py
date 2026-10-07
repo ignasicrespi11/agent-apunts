@@ -430,7 +430,8 @@ def ask(
 
     console.print(answer.answer, markup=False, highlight=False)
     if answer.abstained:
-        best = f"{answer.sources[0].score:.3f}" if answer.sources else "-"
+        # max, not the first source: with hybrid search the first isn't always the most similar.
+        best = f"{max(s.score for s in answer.sources):.3f}" if answer.sources else "-"
         console.print(
             f"[dim](abstained: {answer.reason}; best score {best}, "
             f"min_score {s.retrieval.min_score})[/dim]"
@@ -658,7 +659,8 @@ def _document_vectors(s: Settings):
         console.print("No chunked documents yet. Run `ingest` (or register/extract/chunk) first.")
         raise typer.Exit(1)
     try:
-        vectors = detection.document_vectors(texts, make_embedder(s))
+        cache = s.paths.data_dir / "detection" / s.user.id / "document_vectors.json"
+        vectors = detection.document_vectors(texts, make_embedder(s), cache)
     except EmbeddingError as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1) from e
