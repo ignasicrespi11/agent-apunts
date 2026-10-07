@@ -219,3 +219,12 @@ def test_detect_suggests_and_evaluates(fake_services):
     result = runner.invoke(app, ["detect", "--evaluate"])
     assert result.exit_code == 0, result.output
     assert "2 labelled documents" in result.output and "subject correct" in result.output
+
+
+def test_doctor_reports_problems_with_fixes(in_project, monkeypatch):
+    monkeypatch.setenv("QDRANT_URL", "http://127.0.0.1:9")  # nothing listens on port 9
+    monkeypatch.setenv("OLLAMA_URL", "http://127.0.0.1:9")
+    result = runner.invoke(app, ["doctor"])
+    assert result.exit_code == 1
+    assert "docker compose up -d" in result.output and "TESTING_DIR" in result.output
+    assert "Pipeline for ignasi: 0 registered" in result.output

@@ -97,6 +97,13 @@ uv run pytest            # should pass
 docker compose up -d     # starts Qdrant (Docker Desktop must be running on Windows)
 ```
 
+One command checks the whole machine (folders, Ollama and its models, Qdrant, pipeline progress) and
+prints the fix for anything missing:
+
+```bash
+uv run agent-apunts doctor
+```
+
 Check `.env` is read correctly (paths resolved, PDFs counted per subject; secrets are never printed):
 
 ```bash
@@ -144,6 +151,11 @@ cp eval/golden.example.yaml eval/golden.yaml   # then write your own questions (
 uv run agent-apunts eval --sweep      # hit@k, MRR, abstention; pick retrieval.min_score from the sweep
 ```
 Every `ask` is appended to `logs/queries.jsonl` (gitignored) with your user_id.
+
+```bash
+uv run agent-apunts detect --evaluate # accuracy of subject/doc_type auto-detection on your labelled PDFs
+uv run agent-apunts detect            # suggestions for PDFs dropped in apunts/ without folders
+```
 Everything goes to `data/` (gitignored: it is derived from copyrighted material).
 
 Optional, with Qdrant running: `QDRANT_TEST_URL=http://localhost:6333 uv run pytest tests/test_store_server.py`

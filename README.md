@@ -17,6 +17,7 @@ Windows 11 and Omarchy (Arch Linux): see [docs/SETUP.md](docs/SETUP.md).
 
 ## Usage (so far)
 ```bash
+uv run agent-apunts doctor     # checks folders, Ollama + models, Qdrant; prints fixes
 uv run agent-apunts config     # resolved settings + documents per subject (checks .env)
 uv run agent-apunts register   # stage 1: content-hash document IDs in a SQLite manifest
 uv run agent-apunts extract    # stage 2: per-page text, title, language, thumbnail -> JSON
@@ -28,6 +29,7 @@ uv run agent-apunts search "question" [--subject X]   # filtered semantic search
 uv run agent-apunts ask "question" [--subject X]      # local LLM answer with [n] page citations, or abstains
 uv run agent-apunts eval [--sweep]                    # retrieval metrics on the golden set (eval/)
 uv run agent-apunts images | prune [--dry-run]        # hidden image content | forget deleted PDFs
+uv run agent-apunts detect [--evaluate]               # suggest subject/doc_type for unorganised PDFs
 ```
 
 ## Architecture

@@ -11,7 +11,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from agent_apunts import detection, evaluation
+from agent_apunts import detection, doctor, evaluation
 from agent_apunts.config import ConfigError, Settings, load_settings
 from agent_apunts.embeddings import EmbeddingError, make_embedder
 from agent_apunts.ingestion import prune as pruning
@@ -641,3 +641,23 @@ def detect(
         "[dim]Suggestions only. To accept one, move the PDF to apunts/<subject>/<doc_type>/ "
         "and run `ingest` (folders win, D18).[/dim]"
     )
+
+
+@app.command("doctor")
+def run_doctor() -> None:
+    """Check everything a machine needs (folders, Ollama + models, Qdrant) and pipeline progress."""
+    s = _settings()
+    checks = doctor.check_sources(s) + doctor.check_ollama(s) + doctor.check_qdrant(s)
+    table = Table("", "check", "status", "fix")
+    for c in checks:
+        table.add_row("[green]ok[/green]" if c.ok else "[red]!![/red]", c.name, c.detail, c.fix)
+    console.print(table)
+    counts = doctor.pipeline_counts(s, s.user.id)
+    console.print(
+        "Pipeline for "
+        + s.user.id
+        + ": "
+        + ", ".join(f"{n} {stage}" for stage, n in counts.items())
+    )
+    if not all(c.ok for c in checks):
+        raise typer.Exit(1)
