@@ -31,7 +31,7 @@ bash setup-omarchy.sh
 Already cloned: `bash scripts/setup-omarchy.sh`. Log out and back in afterwards (docker group).
 
 Both scripts clone the repo to **`~/code/agent-apunts`** (Windows: `$HOME\code\agent-apunts`; change it with
-`DIR=...` / `-Dir ...`) and create `.env` from `.env.example` if it doesn't exist yet. Every later command runs from that folder.
+`DIR=...` / `-Dir ...`) and create `.env` from `.env.example` if it doesn't exist yet. If the OneDrive folder `_UNI/apunts_testing` is already synced, they also fill in `TESTING_DIR` (re-run the script after OneDrive finishes syncing). Every later command runs from that folder.
 
 ## 2. Private PDFs (OneDrive)
 

@@ -55,11 +55,16 @@ uv run --python 3.12 --no-project python --version
 step "Local config"
 [[ -f "$DIR/.env" ]] || { cp "$DIR/.env.example" "$DIR/.env"; echo "  Created .env (fill it in later)"; }
 mkdir -p "$DIR/apunts" "$DIR/testing/apunts_testing"
+# Point TESTING_DIR at the OneDrive copy of the labelled set, if it exists and .env leaves it empty.
+CORPUS="$HOME/OneDrive/_UNI/apunts_testing"
+if [[ -d "$CORPUS" ]] && grep -qx 'TESTING_DIR=' "$DIR/.env"; then
+  sed -i "s|^TESTING_DIR=\$|TESTING_DIR=$CORPUS|" "$DIR/.env"; echo "  TESTING_DIR set to $CORPUS"
+fi
 
 step "Docker check"
 if docker info >/dev/null 2>&1; then echo "  Docker is running"; else warn "Docker not usable yet (log out/in for the group change)."; fi
 
 step "Done"
-echo "  Open the project: code \"$DIR\"  (VS Code will offer 'Reopen in Container' once the devcontainer exists)"
-echo "  NEXT: sync OneDrive and set TESTING_DIR in $DIR/.env, e.g. TESTING_DIR=$HOME/OneDrive/_UNI/apunts_testing"
-echo "        (see docs/SETUP.md, steps 2-3)"
+echo "  NEXT:  cd $DIR && uv sync && uv run agent-apunts config"
+echo "  (config must list the labelled set: 108 documents. If TESTING_DIR is still empty, sync OneDrive"
+echo "   first and re-run this script, or set it in .env by hand. See docs/SETUP.md steps 2-5.)"
