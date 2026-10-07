@@ -175,11 +175,12 @@ def inspect(
         raise typer.Exit(1)
     doc = read_json(path)
 
-    console.print(f"[bold]{doc.source}/{doc.rel_path}[/bold]")
+    # Location and metadata from the manifest (source of truth: a moved file keeps its extraction).
+    console.print(f"[bold]{record.source}/{record.rel_path}[/bold]")
     console.print(f"doc_id     {doc.doc_id}")
     console.print(f"extractor  {doc.extractor}   json: {path}")
-    if doc.metadata:
-        console.print(f"metadata   {doc.metadata.model_dump(mode='json', exclude_none=True)}")
+    if record.metadata:
+        console.print(f"metadata   {record.metadata.model_dump(mode='json', exclude_none=True)}")
     console.print(f"languages  {', '.join(doc.languages) or '-'}   pages: {len(doc.pages)}")
 
     if chunks:

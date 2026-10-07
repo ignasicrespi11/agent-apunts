@@ -116,3 +116,36 @@ def test_embedder_failure_stops_the_run(manifest, settings, store):
 
     report = _index(manifest, settings, Down(), store)
     assert report.stopped == "cannot reach Ollama" and report.indexed == []
+
+
+def test_identical_chunks_are_not_re_embedded(manifest, settings, embedder, store, monkeypatch):
+    _index(manifest, settings, embedder, store)
+    calls = embedder.calls
+    # A new extractor version re-extracts and re-chunks everything, but the text is identical...
+    from pathlib import Path
+
+    from agent_apunts.ingestion.loaders import loader_for
+
+    loader = loader_for(Path("x.pdf"))
+    monkeypatch.setattr(loader, "version", loader.version + 1)
+    assert len(extract_all(manifest, USER, settings).extracted) == 2
+    assert len(chunk_all(manifest, USER, settings).chunked) == 2
+    # ... so the vectors are still valid: no embedding call at all.
+    report = _index(manifest, settings, embedder, store)
+    assert report.indexed == [] and len(report.up_to_date) == 2
+    assert embedder.calls == calls
+
+
+def test_moved_document_gets_its_payload_updated(manifest, settings, embedder, store):
+    _index(manifest, settings, embedder, store)
+    root = settings.source("testing").root
+    old = root / "disseny_software" / "theory" / "patrons.pdf"
+    new = root / "disseny_software" / "labs" / "patrons.pdf"
+    new.parent.mkdir(parents=True)
+    old.rename(new)
+    register_source(manifest, USER, settings.source("testing"), settings)  # moved: same doc_id
+    chunk_all(manifest, USER, settings)
+    report = _index(manifest, settings, embedder, store)
+    assert report.indexed == ["disseny_software/labs/patrons.pdf"]
+    hits = search("patró observador", USER, embedder, store, doc_type="labs")
+    assert hits and hits[0].payload["rel_path"] == "disseny_software/labs/patrons.pdf"

@@ -4,20 +4,31 @@ Incremental like the other stages: a document is re-indexed when its chunks or t
 changed, or when Qdrant lost its points (e.g. the Docker volume was deleted).
 """
 
+import hashlib
 from dataclasses import dataclass, field
 
 from agent_apunts.config import Settings
 from agent_apunts.embeddings import Embedder, EmbeddingError
 from agent_apunts.ingestion.chunk import STAGE as CHUNK_STAGE
-from agent_apunts.ingestion.chunk import chunks_path, read_chunks
+from agent_apunts.ingestion.chunk import ChunkedDocument, chunks_path, read_chunks
 from agent_apunts.ingestion.manifest import Manifest
 from agent_apunts.store import VectorStore
 
 STAGE = "index"
 
 
-def index_version(chunker: str, embedder: Embedder) -> str:
-    return f"{chunker}|{embedder.model}"
+def index_version(doc: ChunkedDocument, embedder: Embedder) -> str:
+    """What the stored points depend on: the embedded text of every chunk, the model, and the
+    payload (metadata + path: moving a PDF from labs/ to theory/ changes doc_type in Qdrant).
+
+    Chunk IDs already hash the text (D29); the header is added because it is embedded too. A
+    re-extraction or re-chunk that produces identical chunks (e.g. a new extractor field) keeps
+    this version, so nothing is re-embedded: on a CPU that saves minutes per run.
+    """
+    meta = doc.metadata.model_dump_json() if doc.metadata else ""
+    lines = [doc.rel_path, meta] + [f"{c.chunk_id}|{c.header}" for c in doc.chunks]
+    content = "\n".join(lines)
+    return f"{embedder.model}:{hashlib.sha256(content.encode()).hexdigest()[:12]}"
 
 
 @dataclass
@@ -47,7 +58,7 @@ def index_all(
             report.not_chunked.append(record.rel_path)
             continue
         doc = read_chunks(path)
-        version = index_version(doc.chunker, embedder)
+        version = index_version(doc, embedder)
         done = manifest.stage(user_id, record.doc_id, STAGE)
         if (
             not force
