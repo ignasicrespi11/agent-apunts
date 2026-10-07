@@ -64,6 +64,18 @@ def test_register_extract_inspect(in_project):
     assert result.exit_code == 0, result.output
     assert "memoria caché" in result.output
 
+    result = runner.invoke(app, ["chunk"])
+    assert result.exit_code == 0, result.output
+    assert "1 chunked (2 chunks)" in result.output  # slide + A4 page; the image page gives none
+
+    result = runner.invoke(app, ["inspect", "patrons", "--chunks"])
+    assert result.exit_code == 0, result.output
+    assert "Disseny de Software" in result.output
+
+    result = runner.invoke(app, ["inspect", "patrons", "--chunks", "--page", "1"])
+    assert result.exit_code == 0, result.output
+    assert "notificar els canvis" in result.output
+
 
 def test_inspect_unknown_document(in_project):
     result = runner.invoke(app, ["inspect", "nothing"])

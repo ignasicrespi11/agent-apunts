@@ -12,6 +12,7 @@ from rich.console import Console
 from rich.table import Table
 
 from agent_apunts.config import ConfigError, Settings, load_settings
+from agent_apunts.ingestion.chunk import chunk_all, chunks_path, read_chunks
 from agent_apunts.ingestion.discovery import find_files
 from agent_apunts.ingestion.extract import extract_all, processed_path, read_json
 from agent_apunts.ingestion.loaders import supported_extensions
@@ -147,6 +148,7 @@ def extract(
 def inspect(
     query: str = typer.Argument(help="Start of the doc_id, or part of the file path."),
     page: int | None = typer.Option(None, help="Show the full text of this page."),
+    chunks: bool = typer.Option(False, "--chunks", help="Show the chunks and removed boilerplate."),
 ) -> None:
     """Show what was extracted from a document, to compare it with the PDF."""
     s = _settings()
@@ -175,6 +177,10 @@ def inspect(
         console.print(f"metadata   {doc.metadata.model_dump(mode='json', exclude_none=True)}")
     console.print(f"languages  {', '.join(doc.languages) or '-'}   pages: {len(doc.pages)}")
 
+    if chunks:
+        _print_chunks(s, record.doc_id, page)
+        return
+
     if page is not None:
         selected = [p for p in doc.pages if p.number == page]
         if not selected:
@@ -193,5 +199,50 @@ def inspect(
         flag = "[yellow]mostly image[/yellow]" if p.mostly_image else str(p.image_count)
         table.add_row(
             str(p.number), shape, str(p.char_count), p.language or "-", flag, (p.title or "")[:60]
+        )
+    console.print(table)
+
+
+@app.command()
+def chunk(
+    force: bool = typer.Option(False, help="Re-chunk even documents that are up to date."),
+) -> None:
+    """Stages 3+4: clean boilerplate and split pages into chunks -> data/chunks/."""
+    s = _settings()
+    with Manifest(s.paths.manifest) as manifest:
+        r = chunk_all(manifest, s.user.id, s, force=force)
+    console.print(
+        f"{len(r.chunked)} chunked ({r.chunks} chunks), {len(r.up_to_date)} up to date, "
+        f"{len(r.not_extracted)} not extracted yet, {len(r.errors)} errors"
+    )
+    # Audit for D27: the most widespread removed lines. A real sentence here = thresholds too loose.
+    common = sorted(r.removed.items(), key=lambda kv: -kv[1])
+    _list(
+        "boilerplate removed (line -> in how many documents)",
+        [f"{n:>3}  {text}" for text, n in common],
+        "cyan",
+    )
+    _list("not extracted yet (run `extract`)", r.not_extracted)
+    _list("errors", r.errors, "red")
+
+
+def _print_chunks(s: Settings, doc_id: str, page: int | None) -> None:
+    path = chunks_path(s, s.user.id, doc_id)
+    if not path.is_file():
+        console.print("Not chunked yet. Run `chunk`.")
+        raise typer.Exit(1)
+    doc = read_chunks(path)
+    console.print(f"chunker    {doc.chunker}   chunks: {len(doc.chunks)}")
+    _list("boilerplate removed (line -> times)", [f"{r.count:>3}  {r.text}" for r in doc.removed])
+    selected = [c for c in doc.chunks if page is None or c.page == page]
+    if page is not None:  # full text of the page's chunks, as they will be embedded
+        for c in selected:
+            console.rule(f"chunk {c.index} (page {c.page}, part {c.part}, {c.word_count} words)")
+            console.print(c.embedding_text, markup=False, highlight=False)
+        return
+    table = Table("chunk", "page", "part", "words", "lang", "header")
+    for c in selected:
+        table.add_row(
+            str(c.index), str(c.page), str(c.part), str(c.word_count), c.language or "-", c.header
         )
     console.print(table)

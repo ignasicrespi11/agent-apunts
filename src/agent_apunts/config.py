@@ -59,6 +59,10 @@ class Paths(_Strict):
     def thumbnails_dir(self) -> Path:
         return self.data_dir / "thumbnails"
 
+    @property
+    def chunks_dir(self) -> Path:
+        return self.data_dir / "chunks"
+
 
 class ExtractionSettings(_Strict):
     image_page_max_chars: int = Field(ge=0)
