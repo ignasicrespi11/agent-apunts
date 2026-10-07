@@ -11,7 +11,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from agent_apunts import evaluation
+from agent_apunts import detection, evaluation
 from agent_apunts.config import ConfigError, Settings, load_settings
 from agent_apunts.embeddings import EmbeddingError, make_embedder
 from agent_apunts.ingestion import prune as pruning
@@ -564,3 +564,80 @@ def _prune(
         return
     pruning.remove(manifest, s.user.id, s, store, orphans.documents)
     _list("removed (manifest, JSON, thumbnails, Qdrant points)", paths)
+
+
+@app.command()
+def detect(
+    evaluate: bool = typer.Option(False, help="Measure accuracy leave-one-out on labelled PDFs."),
+) -> None:
+    """Suggest subject / doc_type / year for unorganised PDFs (D18, D36). Changes nothing."""
+    s = _settings()
+    k = s.detection.sample_chunks
+    texts: dict[str, list[str]] = {}
+    first_pages: dict[str, str] = {}
+    with Manifest(s.paths.manifest) as manifest:
+        records = manifest.documents(s.user.id)
+    for record in records:
+        chunk_file = chunks_path(s, s.user.id, record.doc_id)
+        page_file = processed_path(s, s.user.id, record.doc_id)
+        if not chunk_file.is_file() or not page_file.is_file():
+            continue
+        chunk_texts = [c.text for c in read_chunks(chunk_file).chunks]
+        if chunk_texts:
+            texts[record.doc_id] = detection.sample_texts(chunk_texts, k)
+        pages = read_json(page_file).pages
+        first_pages[record.doc_id] = pages[0].text if pages else ""
+    if not texts:
+        console.print("No chunked documents yet. Run `ingest` (or register/extract/chunk) first.")
+        raise typer.Exit(1)
+    try:
+        vectors = detection.document_vectors(texts, make_embedder(s))
+    except EmbeddingError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from e
+
+    labelled = [r for r in records if r.metadata is not None]
+    margin = s.detection.min_margin
+    if evaluate:
+        r = detection.evaluate_leave_one_out(labelled, vectors, first_pages, margin)
+        console.print(
+            f"{r.documents} labelled documents, each predicted as if it were unorganised:\n"
+            f"  subject correct:  {r.rate(r.subject_correct, r.documents):.0%}\n"
+            f"  doc_type correct: {r.rate(r.doc_type_correct, r.documents):.0%} (keyword rules)\n"
+            f"  confident (margin >= {margin}): {r.rate(r.confident, r.documents):.0%} of "
+            f"documents, subject correct in {r.rate(r.confident_correct, r.confident):.0%} of those"
+        )
+        table = Table("true subject", "predicted", "documents")
+        for (truth, guess), n in sorted(r.confusion.items()):
+            table.add_row(truth, guess, str(n), style=None if truth == guess else "red")
+        console.print(table)
+        _list(
+            "wrong subject (path: true -> predicted)",
+            [f"{p}: {t} -> {g}" for p, t, g in r.mistakes],
+        )
+        return
+
+    unorganised = [r for r in records if r.metadata is None and r.doc_id in vectors]
+    if not unorganised:
+        console.print("Every document already has metadata from its folders. Nothing to detect.")
+        return
+    labels = {r.doc_id: r.metadata.subject for r in labelled}
+    centroids = detection.subject_centroids(vectors, labels)
+    table = Table("document", "subject", "margin", "confident", "doc_type", "year")
+    for record in unorganised:
+        d = detection.detect(
+            record, vectors[record.doc_id], first_pages.get(record.doc_id, ""), centroids, margin
+        )
+        table.add_row(
+            d.rel_path,
+            d.subject or "-",
+            f"{d.margin:.3f}",
+            "yes" if d.confident else "[yellow]no: confirm[/yellow]",
+            f"{d.doc_type.value} ({d.doc_type_source})",
+            d.academic_year or "-",
+        )
+    console.print(table)
+    console.print(
+        "[dim]Suggestions only. To accept one, move the PDF to apunts/<subject>/<doc_type>/ "
+        "and run `ingest` (folders win, D18).[/dim]"
+    )

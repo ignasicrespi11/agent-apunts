@@ -118,6 +118,11 @@ class LLMSettings(_Strict):
     num_ctx: int = Field(gt=0)
 
 
+class DetectionSettings(_Strict):
+    min_margin: float = Field(ge=0, le=2)
+    sample_chunks: int = Field(gt=0)
+
+
 class RetrievalSettings(_Strict):
     top_k: int = Field(gt=0)
     min_score: float = Field(ge=-1, le=1)  # cosine similarity
@@ -146,6 +151,7 @@ class Settings(_Strict):
     qdrant: QdrantSettings
     ollama: OllamaSettings
     retrieval: RetrievalSettings
+    detection: DetectionSettings
     llm: LLMSettings
     subjects: dict[Slug, Subject]
 

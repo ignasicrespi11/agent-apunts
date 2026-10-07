@@ -70,5 +70,14 @@ llm:
   temperature: 0
   num_ctx: 8192
 
+# Metadata auto-detection (D36, proposed). A document is assigned to the subject whose centroid
+# (mean vector of its labelled documents) is closest; the guess counts as confident only if it
+# beats the second-best subject by at least min_margin (cosine). Calibrate with `detect --evaluate`.
+# Vectors come from up to sample_chunks chunks of plain text (no header: the header contains the
+# subject's name, which unorganised PDFs don't have; using it would fake a perfect accuracy).
+detection:
+  min_margin: 0.05
+  sample_chunks: 6
+
 # Query log (D33): one JSON line per question, with user_id. Gitignored: it contains your questions.
 logs_dir: logs

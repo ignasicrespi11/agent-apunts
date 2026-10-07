@@ -5,7 +5,8 @@ from typer.testing import CliRunner
 
 from agent_apunts.cli import app
 
-runner = CliRunner()
+# Wide terminal: rich tables would otherwise wrap paths and texts mid-word in assertions.
+runner = CliRunner(env={"COLUMNS": "200"})
 
 
 @pytest.fixture
@@ -200,3 +201,21 @@ def test_prune_registers_first_so_moves_are_not_deleted(fake_services):
     result = runner.invoke(app, ["prune"])  # no explicit register before it
     assert result.exit_code == 0, result.output
     assert "Nothing to prune." in result.output and "1 moved" in result.output
+
+
+def test_detect_suggests_and_evaluates(fake_services):
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide", "a4"])
+    make_pdf(corpus / "informacio_i_seguretat" / "exams" / "e.pdf", ["a4", "dense"])
+    make_pdf(fake_services / "apunts" / "Examen_misteri.pdf", ["slide"])
+    assert runner.invoke(app, ["ingest"]).exit_code == 0
+
+    result = runner.invoke(app, ["detect"])
+    assert result.exit_code == 0, result.output
+    assert "Examen_misteri.pdf" in result.output and "exams (filename)" in result.output
+
+    result = runner.invoke(app, ["detect", "--evaluate"])
+    assert result.exit_code == 0, result.output
+    assert "2 labelled documents" in result.output and "subject correct" in result.output
