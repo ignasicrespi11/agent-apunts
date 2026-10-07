@@ -1,6 +1,7 @@
 # TODO
 
-Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
+Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Weeks 2–3 code is built (5–7 Oct); extraction is validated on the
+real corpus (Omarchy + Windows). Next: run chunk/index/search on the real corpus, then week 4.
 
 ## Corpus findings (2026-09-29, labelled set)
 - 110 PDFs, 2,087 pages. No encrypted/broken files.
@@ -14,6 +15,11 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
   **Languages are per document, not per subject** (IS: ca 47% / en 42% / es 10%) → `languages` list in config; D16 per page.
 - Many near-duplicates (ES/EN translations, statement vs solutions, book with/without solutions) → D19 (phase 2).
 - Image-heavy: ~16% of disseny_software pages have <80 chars (D14 relevant there).
+- First real extraction (2026-10-06, Omarchy): 108 docs, 2,059 pages, 0 errors, register idempotent. 20 pages with
+  no text: exam pages 16–24 of `examen1_2024_25-solucions` are **blank pages** (checked by Ignasi), the rest are
+  blank/separator pages in the problem books → no scanned content found, OCR stays in the parking lot.
+  Title heuristic: bullets taken as title (fixed, loader v2); big callouts low on the slide taken as titles (fixed, v3:
+  top 30% only). Windows run (2026-10-07) gives identical doc_ids, page counts and empty pages as Omarchy.
 
 ## Now — Week 1: foundations
 - [x] Architecture proposal (Opus) → `docs/ARCHITECTURE.md`
@@ -24,7 +30,7 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - [x] Data pipeline decisions D11–D17 → `docs/ARCHITECTURE.md`; pre-commit hook blocking course material
 - [x] `docker-compose.yml` (Qdrant v1.19.1, localhost-only ports, named volume). No devcontainer: app runs natively with uv (GPU, OneDrive)
 - [x] `pyproject.toml` with uv, package `agent_apunts`, pytest + ruff running
-- [ ] **Next:** `config/settings.yaml` + `config/sources.yaml` (from `testing/sources_draft.yaml`; no personal data, can be committed) + `config.py` loader + `DocumentMetadata` model + tests
+- [x] `config/settings.yaml` + `config/sources.yaml` + `config.py` loader (D20) + `DocumentMetadata` (D21) + tests
 - [x] (Ignasi) Labelled set: 3 subjects, 110 PDFs in `testing/apunts_testing/<subject>/<doc_type>/`
 - [x] Setup scripts for Windows + Omarchy (`docs/SETUP.md`)
 - [x] (Ignasi) Windows: WSL2 + Docker Desktop working
@@ -33,14 +39,20 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - [x] `docs/SETUP.md`: 3 steps per machine (script → OneDrive → `.env`), incl. OneDrive on Omarchy
 - [ ] (Ignasi) This Windows PC: create `.env` from `.env.example` with `TESTING_DIR` (not done yet as of 2026-09-30)
 - [ ] (Ignasi) Omarchy + second Windows PC: follow `docs/SETUP.md` steps 1–3
-- [ ] Config loader must read `APUNTS_DIR` / `TESTING_DIR` from `.env` (defaults `./apunts`, `./testing/apunts_testing`). Claude cannot read `.env`: verify by printing the resolved path and PDF count from Python.
+- [x] Config loader reads `APUNTS_DIR` / `TESTING_DIR` / `QDRANT_URL` from `.env`; `uv run agent-apunts config` prints resolved paths + document counts
+- [ ] (Ignasi) On each machine (Omarchy ✓ 2026-10-06, Windows PC 2 ✓ 2026-10-07): `uv run agent-apunts config` must show 108 documents (110 analysed minus 2 exact duplicates removed) and no "problem" lines
+- [ ] (Ignasi) Check subject names in `config/sources.yaml` (written by Claude from the folder names)
 - [ ] (Ignasi) Once `TESTING_DIR` works, delete the duplicate local copy in `testing/apunts_testing/` (keep OneDrive as the single source)
 - [ ] Learn: reading Python (modules, imports, type hints, dataclasses/Pydantic, pytest)
-- [ ] Sunday: `docs/weekly/week-01.md`
+- [x] Sunday: `docs/weekly/week-01.md`
 
 ## Phase 1 — First version (to 25 Oct)
-- [ ] W2 (6–12 Oct): manifest (content-hash doc IDs) + PDF extractor (PyMuPDF: title, text, language, thumbnail, image flag) → `data/processed/*.json`; `inspect` command; tests
-- [ ] W3 (13–19 Oct): boilerplate cleaning + slide chunking with contextual header; embeddings (bge-m3), Qdrant collection + payload indexes (user_id as tenant, subject), idempotent ingest, filtered search; `ingest` / `search` CLI
+- [x] W2 (built 5 Oct): manifest (D22) + loader registry (D23) + PDF extractor (D24, language D25) → `data/processed/<user>/<doc_id>.json`; `register` / `extract` / `inspect` commands; 71 tests on synthetic PDFs
+- [x] Real-corpus extraction check (Omarchy + Windows PC 2): register idempotent, 0 errors, titles checked on slides_grasp
+- [x] Fix extraction issues found on the real corpus (empty-pages crash; title heuristic v2 bullets, v3 top 30%)
+- [x] W3 (built 7 Oct, D26–D29): boilerplate cleaning + size-based chunking with contextual header; Embedder interface + Ollama bge-m3; Qdrant collection with model metadata + payload indexes (user_id tenant, subject…); idempotent index; filtered search; `chunk` / `index` / `ingest` / `search` CLI; 112 tests (+3 opt-in against a real Qdrant, verified on 1.19.1)
+- [ ] **Next (Ignasi, machine with PDFs):** `git pull`, re-run the setup script (installs Ollama + pulls bge-m3), `docker compose up -d`, then `uv run agent-apunts ingest`. Check: (1) `chunk` output's boilerplate list has no real sentences/formulas; (2) `inspect IS2526-ExamenFinal --chunks` splits the dense pages; (3) running `ingest` twice keeps the same point count; (4) 5 `search` questions in ca/es/en find the right slides (note results for week 4)
+- [ ] Tune cleaning/chunking thresholds from that check (settings.yaml; changing them re-chunks automatically)
 - [ ] W4 (20–25 Oct): LLMClient + Ollama implementation (Windows GPU), grounded `ask` with citations + abstention, 20 golden questions (ca/es/en), hit@k script; metadata auto-detection (D18) + accuracy vs manually organised subjects
 - 🛑 26–30 Oct: exams
 
@@ -82,3 +94,6 @@ Current: **Phase 1 · Week 1 (29 Sep – 5 Oct 2026)**
 - 2026-09-29: Local folder renamed to agent-apunts. D13 revised (layout-aware chunking) and D19 (near-duplicate grouping) accepted.
 - 2026-09-30: Metadata draft generated from PDFs (testing/sources_draft.yaml); findings on professor/year/language recorded. Model policy: Opus for first coding sessions.
 - 2026-09-30: Dev environment: pyproject + uv.lock (Python 3.12, minimal deps), Qdrant via docker-compose, smoke tests. Devcontainer dropped (native uv).
+- 2026-10-05: (cloud session, Opus) New rule: sessions use the whole token budget, every why documented. Config + DocumentMetadata, `config` command, manifest + loader registry + PDF extraction + `inspect` (D20–D25), week-01 summary. 71 tests pass. Not yet run on real PDFs. Push was blocked (GitHub App access) at first.
+- 2026-10-06/07: First real-corpus runs (Omarchy, Windows PC 2): 2 extraction fixes (empty-pages crash, title heuristic v2/v3), setup scripts fixed (clone path, WSL check aborting on PS 5.1, TESTING_DIR auto-fill, Smart App Control diagnosis).
+- 2026-10-07: Week 3 built in the cloud session (D26–D29 approved in one batch): cleaning + chunking + Ollama embedder + Qdrant store/index/search. Tests caught 3 cleaning traps (exam-table numbers, numbered headings, page 0) and an `ingest` bug. Not yet run on real PDFs/Ollama.

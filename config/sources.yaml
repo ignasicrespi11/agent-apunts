@@ -1,0 +1,15 @@
+# Subjects of this user. Keys are the folder names under <root>/<subject>/<doc_type>/ (D5).
+# taken_in: the academic year the subject was taken. A document can be from another year
+# (e.g. a 2022-23 exam used in 2025-26); that is DocumentMetadata.academic_year, detected per document.
+# professor: optional. Professors appear in no PDF and are not recorded for now.
+
+subjects:
+  arquitectura_computadors:
+    name: Arquitectura de Computadors
+    taken_in: "2025-26"
+  disseny_software:
+    name: Disseny de Software
+    taken_in: "2025-26"
+  informacio_i_seguretat:
+    name: Informació i Seguretat
+    taken_in: "2025-26"

@@ -22,11 +22,11 @@ Built for one user first, and designed to later scale to other degrees, universi
 - User/subject filtering happens **inside the vector DB query** (a Qdrant filter), never after retrieval.
 - No hardcoded subjects, paths, universities or model names. They come from `config/*.yaml` and `.env`.
 - Ingestion is modular: one loader per file format, registered by extension.
-- Chunk IDs are deterministic (hash of user_id + path + index + content), so re-ingesting is idempotent.
+- Chunk IDs are deterministic (hash of user_id + doc_id + index + content; doc_id, not path, so moves keep IDs), so re-ingesting is idempotent.
 - The embedding model used for ingestion and for queries must be the same. It's stored in config and in the collection metadata.
 - Pipeline is staged and incremental (register → extract → clean → chunk → index); intermediate outputs in `data/`. Queries never read PDFs.
 - Metadata auto-detection (D18, week 4+): folder name wins if present; manual folders are the ground truth to measure it.
-- Layout-aware chunking (D13): slide page = 1 chunk; dense A4 page = split by headings/paragraphs (~300–500 words); page number + contextual header always. Answers only from retrieved notes, with citations; abstain if nothing relevant.
+- Chunking (D13, D26): size decides — page ≤ 450 words = 1 chunk, longer pages split by paragraphs (~350 words); page number + contextual header always. Answers only from retrieved notes, with citations; abstain if nothing relevant.
 - **Course material is copyrighted: never commit PDFs, processed text, thumbnails or `data/`.** Test fixtures must be self-generated.
 - Out of scope (roadmap only): authentication, billing/quotas, distributed deployment.
 
@@ -44,15 +44,19 @@ Full rationale: `docs/ARCHITECTURE.md`.
 ## Commands
 - New machine: `scripts/setup-windows.ps1` or `scripts/setup-omarchy.sh` (see `docs/SETUP.md`); they also enable the pre-commit hook
 
-## Session workflow (quota-efficient)
+## Session workflow (use the whole token budget, document every why)
 - Start: read this file + `TODO.md` only. Don't scan the whole repo unless the task needs it.
-- One task per session. Prefer small diffs. Run the tests before saying something works.
+- A session's goal is to **use its token budget fully**, not to be short: chain tasks from `TODO.md` in order.
+  Approve the structural decisions up front (one batch of questions), then work through them.
+- One commit per task; small, reviewable diffs. Run the tests before saying something works.
+- Every decision is documented with its **why** and the rejected alternative: `docs/ARCHITECTURE.md` (decision table)
+  for design choices, the commit message for smaller ones, a short comment in code only when the why isn't obvious.
 - Git: code changes go on a branch `feat/<topic>` (or `fix/`, `test/`) and end with a PR (`gh pr create`) with a clear description; Ignasi reviews the diff and merges on GitHub. Small docs-only changes may go straight to `main`.
 - End: update `TODO.md` (tick tasks, next step, one line in the Session log). Commit with a clear message.
 - Sunday: write `docs/weekly/week-NN.md` ("what we built and why" + 1–2 CV bullets). Use `/weekly-summary`.
 - Models — rule of thumb: **task creates a new interface/pattern → Opus; task follows an existing pattern → Sonnet.**
   Opus: foundations (config + metadata model, loader interface/registry, manifest, store/LLM interfaces), agent and eval design, final review.
-  Sonnet: new loaders, CLI commands, tests, bug fixes, UI. Switch to Sonnet anyway if quota gets tight. Haiku for docs/formatting/cleanup. Always start a fresh session per task: long sessions cost more than model choice.
+  Sonnet: new loaders, CLI commands, tests, bug fixes, UI. Switch to Sonnet anyway if quota gets tight. Haiku for docs/formatting/cleanup. Within a long session, follow the plan agreed at the start.
 
 ## Calendar
 No work 26–30 Oct 2026 or 23 Dec 2026–29 Jan 2027 (exams). Phase dates are in `TODO.md`.

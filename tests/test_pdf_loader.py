@@ -1,0 +1,113 @@
+"""PDF loader (PyMuPDF) on self-generated PDFs."""
+
+from pathlib import Path
+
+import pymupdf
+import pytest
+
+from agent_apunts.ingestion.loaders import loader_for, supported_extensions
+from agent_apunts.ingestion.loaders.pdf import PdfLoader, normalize_text
+from tests.pdf_factory import make_pdf
+
+
+@pytest.fixture
+def pages(tmp_path):
+    pdf = make_pdf(tmp_path / "doc.pdf", ["slide", "a4", "image"])
+    return PdfLoader().load(pdf, tmp_path / "thumbs", thumbnail_width=320)
+
+
+def test_registry():
+    assert ".pdf" in supported_extensions()
+    assert isinstance(loader_for(Path("SLIDES.PDF")), PdfLoader)  # extension case-insensitive
+
+
+def test_page_numbers_and_shape(pages):
+    assert [p.number for p in pages] == [1, 2, 3]
+    slide, a4, _ = pages
+    assert slide.width > slide.height  # landscape
+    assert a4.width < a4.height  # portrait
+
+
+def test_text_and_title(pages):
+    slide, a4, image = pages
+    assert slide.title == "Patrons de disseny"
+    assert "patró observador" in slide.text
+    assert a4.title is None  # one font size: no title instead of a random line
+    assert "memoria caché" in a4.text
+    assert image.text == "" and image.title is None
+
+
+def test_images_and_thumbnails(pages):
+    assert [p.image_count for p in pages] == [1, 0, 1]
+    for p in pages:
+        assert p.thumbnail.is_file()
+        assert pymupdf.Pixmap(str(p.thumbnail)).width == 320
+
+
+def test_password_protected_pdf_is_an_error(tmp_path):
+    doc = pymupdf.open()
+    doc.new_page()
+    path = tmp_path / "locked.pdf"
+    doc.save(path, encryption=pymupdf.PDF_ENCRYPT_AES_256, user_pw="x", owner_pw="y")
+    with pytest.raises(ValueError, match="password"):
+        PdfLoader().load(path, tmp_path / "t", 100)
+
+
+def test_normalize_text():
+    decomposed = "memòria"  # "o" + combining grave accent
+    assert normalize_text(decomposed) == "memòria"
+    assert normalize_text("a  \n\n\n\nb \n") == "a\n\nb"
+
+
+def test_big_bullets_are_not_a_title(tmp_path):
+    # Real case (slides_grasp.pdf p45): a row of bullets in a big font was taken as the title.
+    doc = pymupdf.open()
+    page = doc.new_page(width=842, height=595)
+    page.insert_text((50, 80), "High cohesion", fontsize=28)
+    page.insert_text((50, 160), "\u2022 \u2022 \u2022 \u2022", fontsize=40)
+    page.insert_textbox(
+        pymupdf.Rect(50, 200, 790, 500), "Body text of the slide. " * 10, fontsize=16
+    )
+    path = tmp_path / "bullets.pdf"
+    doc.save(path)
+    (page,) = PdfLoader().load(path, tmp_path / "t", 100)
+    assert page.title == "High cohesion"
+
+
+def _one_page(tmp_path, draw, rotation=0):
+    doc = pymupdf.open()
+    page = doc.new_page(width=842, height=595)
+    draw(page)
+    page.insert_textbox(
+        pymupdf.Rect(50, 200, 790, 400), "Body text of the slide. " * 8, fontsize=16
+    )
+    page.set_rotation(rotation)
+    path = tmp_path / "page.pdf"
+    doc.save(path)
+    (raw,) = PdfLoader().load(path, tmp_path / "t", 100)
+    return raw
+
+
+def test_big_callout_low_on_the_page_is_not_a_title(tmp_path):
+    # Real case (slides_grasp.pdf p26): a big comment under a code screenshot was the "title".
+    def draw(page):
+        page.insert_text((50, 70), "Expert", fontsize=26)
+        page.insert_text((50, 520), "Is this right ?", fontsize=32)  # bigger, but at the bottom
+
+    assert _one_page(tmp_path, draw).title == "Expert"
+
+
+def test_only_a_low_callout_gives_no_title(tmp_path):
+    def draw(page):
+        page.insert_text((50, 520), "Is this right ?", fontsize=32)
+
+    assert _one_page(tmp_path, draw).title is None
+
+
+def test_title_position_uses_the_visible_page(tmp_path):
+    # Rotated 180 degrees, the text written at the top is shown at the bottom: not a title.
+    def draw(page):
+        page.insert_text((50, 70), "Expert", fontsize=26)
+
+    assert _one_page(tmp_path, draw).title == "Expert"
+    assert _one_page(tmp_path, draw, rotation=180).title is None

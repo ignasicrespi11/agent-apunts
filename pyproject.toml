@@ -5,10 +5,19 @@ description = "RAG agent over university notes that answers with citations to th
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "httpx>=0.28.1",
+    "py3langid>=0.4.0",
     "pydantic>=2.13.5",
+    "pymupdf>=1.28.2",
+    "python-dotenv>=1.2.4",
     "pyyaml>=6.0.3",
+    "qdrant-client>=1.19.1",
+    "rich>=15.0.0",
     "typer>=0.27.2",
 ]
+
+[project.scripts]
+agent-apunts = "agent_apunts.cli:app"
 
 [build-system]
 requires = ["uv_build>=0.12.20,<0.13"]
@@ -16,6 +25,8 @@ build-backend = "uv_build"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Tests use Qdrant's in-memory mode, where payload indexes are accepted but have no effect.
+filterwarnings = ["ignore:Payload indexes have no effect in the local Qdrant:UserWarning"]
 
 [tool.ruff]
 line-length = 100

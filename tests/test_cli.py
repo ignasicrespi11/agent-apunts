@@ -1,0 +1,130 @@
+"""CLI commands, run in-process with Typer's test runner."""
+
+import pytest
+from typer.testing import CliRunner
+
+from agent_apunts.cli import app
+
+runner = CliRunner()
+
+
+@pytest.fixture
+def in_project(project, monkeypatch):
+    monkeypatch.chdir(project)  # the CLI finds config/ from the current folder
+    return project
+
+
+def _touch(path):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"%PDF-")  # content is irrelevant for `config`: it only counts files
+
+
+def test_config_counts_pdfs_and_reports_problems(in_project):
+    corpus = in_project / "testing" / "apunts_testing"
+    _touch(corpus / "disseny_software" / "theory" / "t1.pdf")
+    _touch(corpus / "disseny_software" / "theory" / "t2.pdf")
+    _touch(corpus / "typo_subject" / "exams" / "e.pdf")
+
+    result = runner.invoke(app, ["config"])
+
+    assert result.exit_code == 0, result.output
+    assert "3 documents" in result.output
+    assert "disseny_software" in result.output
+    assert "typo_subject" in result.output and "problem" in result.output
+
+
+def test_config_error_exits_nonzero(in_project):
+    (in_project / "config" / "settings.yaml").write_text("user: {}\n")
+    result = runner.invoke(app, ["config"])
+    assert result.exit_code == 1
+    assert "Configuration error" in result.output
+
+
+def test_register_extract_inspect(in_project):
+    from tests.pdf_factory import make_pdf
+
+    corpus = in_project / "testing" / "apunts_testing"
+    # The "image" page has no text: it exercises the empty-pages list in `extract`'s output.
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide", "a4", "image"])
+
+    result = runner.invoke(app, ["register"])
+    assert result.exit_code == 0, result.output
+    assert "1 new" in result.output
+
+    result = runner.invoke(app, ["extract"])
+    assert result.exit_code == 0, result.output
+    assert "1 extracted (3 pages)" in result.output
+    assert "patrons.pdf  page 3" in result.output
+
+    result = runner.invoke(app, ["inspect", "patrons"])
+    assert result.exit_code == 0, result.output
+    assert "Patrons de disseny" in result.output and "landscape" in result.output
+
+    result = runner.invoke(app, ["inspect", "patrons", "--page", "2"])
+    assert result.exit_code == 0, result.output
+    assert "memoria caché" in result.output
+
+    result = runner.invoke(app, ["chunk"])
+    assert result.exit_code == 0, result.output
+    assert "1 chunked (2 chunks)" in result.output  # slide + A4 page; the image page gives none
+
+    result = runner.invoke(app, ["inspect", "patrons", "--chunks"])
+    assert result.exit_code == 0, result.output
+    assert "Disseny de Software" in result.output
+
+    result = runner.invoke(app, ["inspect", "patrons", "--chunks", "--page", "1"])
+    assert result.exit_code == 0, result.output
+    assert "notificar els canvis" in result.output
+
+
+def test_inspect_unknown_document(in_project):
+    result = runner.invoke(app, ["inspect", "nothing"])
+    assert result.exit_code == 1
+    assert "No document matches" in result.output
+
+
+def test_register_unknown_source(in_project):
+    result = runner.invoke(app, ["register", "--source", "nope"])
+    assert result.exit_code == 1
+    assert "unknown source" in result.output
+
+
+@pytest.fixture
+def fake_services(monkeypatch, in_project):
+    """Ollama -> HashEmbedder, Qdrant -> one in-memory store shared by every command call."""
+    from qdrant_client import QdrantClient
+
+    from agent_apunts import cli
+    from agent_apunts.store import VectorStore
+    from tests.fakes import HashEmbedder
+
+    embedder = HashEmbedder()
+    store = VectorStore(QdrantClient(":memory:"), "apunts", embedder.model, embedder.dimension)
+    monkeypatch.setattr(cli, "make_embedder", lambda settings: embedder)
+    monkeypatch.setattr(cli.VectorStore, "from_settings", classmethod(lambda cls, s: store))
+    return in_project
+
+
+def test_ingest_then_search(fake_services):
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide", "a4"])
+
+    result = runner.invoke(app, ["ingest"])
+    assert result.exit_code == 0, result.output
+    assert "1 indexed (2 points)" in result.output
+
+    again = runner.invoke(app, ["ingest"])
+    assert again.exit_code == 0, again.output
+    assert "0 indexed (0 points), 1 up to date" in again.output
+    assert "holds 2 points" in again.output  # idempotent: still 2 (D29)
+
+    result = runner.invoke(app, ["search", "patró observador", "--subject", "disseny_software"])
+    assert result.exit_code == 0, result.output
+    assert "disseny_software" in result.output and "score" in result.output
+
+
+def test_search_unknown_subject(fake_services):
+    result = runner.invoke(app, ["search", "x", "--subject", "nope"])
+    assert result.exit_code == 1 and "Unknown subject" in result.output
