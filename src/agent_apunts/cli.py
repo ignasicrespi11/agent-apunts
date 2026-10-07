@@ -111,10 +111,12 @@ def _list(title: str, items: list, style: str = "yellow", limit: int = 20) -> No
         console.print(f"  ... and {len(items) - limit} more")
 
 
-def _register_all(s: Settings, manifest: Manifest, sources) -> dict[str, RegisterReport]:
+def _register_all(
+    s: Settings, manifest: Manifest, sources, write: bool = True
+) -> dict[str, RegisterReport]:
     reports = {}
     for src in sources:
-        r = register_source(manifest, s.user.id, src, s)
+        r = register_source(manifest, s.user.id, src, s, write=write)
         reports[src.name] = r
         if not r.scanned:
             console.print(f"[bold]{src.name}[/bold]: [yellow]folder not found: {src.root}[/yellow]")
@@ -596,7 +598,8 @@ def prune(
     Runs `register` on every source first: only content seen nowhere is pruned."""
     s = _settings()
     with Manifest(s.paths.manifest) as manifest:
-        scans = _register_all(s, manifest, s.sources)
+        # A dry run scans without writing: the manifest is left exactly as it was.
+        scans = _register_all(s, manifest, s.sources, write=not dry_run)
         _prune(s, manifest, scans, dry_run=dry_run, strict=True)
 
 
@@ -604,6 +607,11 @@ def _prune(
     s: Settings, manifest: Manifest, scans: dict[str, RegisterReport], dry_run: bool, strict: bool
 ) -> None:
     orphans = pruning.find_orphans(manifest, s.user.id, s, scans)
+    for name in orphans.blocked_sources:
+        console.print(
+            f"[yellow]{name}: some files could not be read (see errors above); nothing is pruned "
+            "there until they can.[/yellow]"
+        )
     for name in orphans.skipped_sources:
         console.print(
             f"[yellow]{name}: folder not found, its documents are kept as they are.[/yellow]"

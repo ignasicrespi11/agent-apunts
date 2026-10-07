@@ -36,9 +36,12 @@ class RegisterReport:
     duplicates: list[tuple[str, str]] = field(default_factory=list)  # (skipped, kept)
     missing: list[str] = field(default_factory=list)  # in the manifest, content no longer found
     errors: list[tuple[str, str]] = field(default_factory=list)  # (rel_path, reason)
-    # For prune (D35): was the folder there to scan, and which contents were found in it.
+    # For prune (D35): was the folder there to scan, which contents were found in it (including
+    # files whose folder names were wrong: their content still exists), and how many files could
+    # not be read at all (their content is unknown, so nothing in this source may be pruned).
     scanned: bool = False
     seen: set[str] = field(default_factory=set)
+    unreadable: int = 0
 
 
 def _metadata(path: Path, source: Source, settings: Settings) -> DocumentMetadata | None:
@@ -49,18 +52,26 @@ def _metadata(path: Path, source: Source, settings: Settings) -> DocumentMetadat
 
 
 def register_source(
-    manifest: Manifest, user_id: str, source: Source, settings: Settings
+    manifest: Manifest, user_id: str, source: Source, settings: Settings, write: bool = True
 ) -> RegisterReport:
+    """Scan one source folder. write=False: compute the report without changing the manifest
+    (used by `prune --dry-run`)."""
     report = RegisterReport(scanned=source.root.is_dir())
     seen: dict[str, str] = {}  # doc_id -> rel_path, within this run
 
     for path in find_files(source.root, supported_extensions()):
         rel_path = path.relative_to(source.root).as_posix()
         try:
-            meta = _metadata(path, source, settings)
-            doc_id = file_hash(path)
-        except (ValueError, OSError) as e:
+            doc_id = file_hash(path)  # first: even with bad folder names the content is known
+        except OSError as e:  # locked mid-sync, permissions...
             report.errors.append((rel_path, str(e)))
+            report.unreadable += 1
+            continue
+        try:
+            meta = _metadata(path, source, settings)
+        except ValueError as e:  # wrong folder names: not registered, but its content exists
+            report.errors.append((rel_path, str(e)))
+            report.seen.add(doc_id)
             continue
 
         if doc_id in seen:
@@ -70,7 +81,8 @@ def register_source(
 
         existing = manifest.get(user_id, doc_id)
         if existing is None:
-            manifest.add(user_id, doc_id, source.name, rel_path, path.stat().st_size, meta)
+            if write:
+                manifest.add(user_id, doc_id, source.name, rel_path, path.stat().st_size, meta)
             report.new.append(rel_path)
         elif existing.source != source.name and _still_exists(existing, settings):
             # Same content already registered from the other source (e.g. a PDF that is both
@@ -81,7 +93,8 @@ def register_source(
             rel_path,
             meta,
         ):
-            manifest.update_location(user_id, doc_id, source.name, rel_path, meta)
+            if write:
+                manifest.update_location(user_id, doc_id, source.name, rel_path, meta)
             report.moved.append((existing.rel_path, rel_path))
         else:
             report.unchanged.append(rel_path)
@@ -91,7 +104,7 @@ def register_source(
     for record in manifest.documents(user_id, source.name):
         if record.doc_id not in seen:
             report.missing.append(record.rel_path)
-    report.seen = set(seen)
+    report.seen |= set(seen)
     return report
 
 

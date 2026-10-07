@@ -26,6 +26,7 @@ from agent_apunts.store import VectorStore
 class Orphans:
     documents: list[DocumentRecord] = field(default_factory=list)
     skipped_sources: list[str] = field(default_factory=list)  # folder missing: nothing decided
+    blocked_sources: list[str] = field(default_factory=list)  # unreadable files: nothing decided
 
 
 def find_orphans(
@@ -37,17 +38,20 @@ def find_orphans(
             # A file could have moved into an unscanned folder: we can't tell it from a deletion.
             raise ValueError(f"register every source before pruning (missing: {source.name})")
     seen = set().union(*(scan.seen for scan in scans.values()))
-    unreadable = {(name, path) for name, scan in scans.items() for path, _ in scan.errors}
 
     result = Orphans()
     for name, scan in scans.items():
         if not scan.scanned:
             result.skipped_sources.append(name)
+        elif scan.unreadable:
+            # A file we couldn't read might be the moved copy of any document: its content is
+            # unknown, so this source can't prove anything is gone until the error is fixed.
+            result.blocked_sources.append(name)
     for record in manifest.documents(user_id):
         scan = scans.get(record.source)
-        if scan is None or not scan.scanned:
-            continue  # its folder isn't there (unmounted drive, other machine): keep everything
-        if record.doc_id in seen or (record.source, record.rel_path) in unreadable:
+        if scan is None or not scan.scanned or scan.unreadable:
+            continue  # folder missing (unmounted drive) or unreadable files: keep everything
+        if record.doc_id in seen:
             continue
         result.documents.append(record)
     return result

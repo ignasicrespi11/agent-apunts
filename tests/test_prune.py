@@ -93,7 +93,9 @@ def test_unreadable_file_is_kept(env, settings):
     exam = next(r for r in m.documents(USER) if r.rel_path.endswith("e.pdf"))
     scans["testing"].seen.discard(exam.doc_id)
     scans["testing"].errors.append((exam.rel_path, "PermissionError"))
-    assert find_orphans(m, USER, settings, scans).documents == []
+    scans["testing"].unreadable = 1
+    orphans = find_orphans(m, USER, settings, scans)
+    assert orphans.documents == [] and orphans.blocked_sources == ["testing"]
 
 
 def test_every_existing_source_must_be_scanned(env, settings):
@@ -104,3 +106,24 @@ def test_every_existing_source_must_be_scanned(env, settings):
         find_orphans(m, USER, settings, scans)
     scans["apunts"] = RegisterReport(scanned=True)
     find_orphans(m, USER, settings, scans)  # now fine
+
+
+def test_moved_into_an_unknown_folder_is_not_pruned(env, settings):
+    # Found by review: a move into a folder not in sources.yaml failed to register, so the
+    # content looked gone. The file is hashed before its folders are checked, so it is "seen".
+    m, root, embedder, store = env
+    _ingest(m, settings, embedder, store)
+    target = root / "new_subject" / "theory" / "patrons.pdf"
+    target.parent.mkdir(parents=True)
+    (root / "disseny_software" / "theory" / "patrons.pdf").rename(target)
+    scans = _scan(m, settings)
+    assert scans["testing"].errors  # reported: folder not in sources.yaml
+    assert find_orphans(m, USER, settings, scans).documents == []
+
+
+def test_dry_run_scan_does_not_write_the_manifest(env, settings):
+    m, root, embedder, store = env
+    make_pdf(root / "disseny_software" / "labs" / "new.pdf", ["a4"])
+    report = register_source(m, USER, settings.source("testing"), settings, write=False)
+    assert "disseny_software/labs/new.pdf" in report.new
+    assert m.documents(USER) == []  # nothing written
