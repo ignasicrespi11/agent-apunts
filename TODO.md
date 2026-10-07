@@ -72,7 +72,7 @@ write the golden set.
 - [ ] Vision enrichment for image-heavy slides (D14), measured
 - [ ] Near-duplicate grouping + collapse results by `group_id` (D19)
 - [ ] Hybrid search (dense + sparse) and reranking; measure the delta
-- [ ] Agent design session (Opus): tools `search_notes`, `list_subjects`, `get_document`
+- [ ] Agent design session (Opus): discuss the proposal in `docs/design/phase-2-agent.md` (tools, loop limits, eval plan, API/UI order)
 - [ ] Agent implementation + tests
 - [ ] FastAPI + Streamlit UI, including upload feeding the same pipeline; show cited slide thumbnails
 - [ ] Folder watcher on `apunts/` (auto-ingest new PDFs); confirm-metadata step for low-confidence detections
