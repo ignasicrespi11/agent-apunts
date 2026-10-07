@@ -17,18 +17,23 @@ from agent_apunts.store import VectorStore
 STAGE = "index"
 
 
-def index_version(doc: ChunkedDocument, embedder: Embedder) -> str:
-    """What the stored points depend on: the embedded text of every chunk, the model, and the
-    payload (metadata + path: moving a PDF from labs/ to theory/ changes doc_type in Qdrant).
+def _digest(lines: list[str]) -> str:
+    return hashlib.sha256("\n".join(lines).encode()).hexdigest()[:12]
 
-    Chunk IDs already hash the text (D29); the header is added because it is embedded too. A
-    re-extraction or re-chunk that produces identical chunks (e.g. a new extractor field) keeps
-    this version, so nothing is re-embedded: on a CPU that saves minutes per run.
+
+def index_version(doc: ChunkedDocument, embedder: Embedder) -> str:
+    """'<vectors>|<payload>': what the stored points depend on, in two independent parts.
+
+    - vectors: the model + the embedded text of every chunk (chunk IDs hash the text, D29; the
+      header is embedded too). Identical chunks after a re-extract or re-chunk keep this part,
+      so nothing is re-embedded (minutes saved on a CPU).
+    - payload: path + metadata (moving a PDF from labs/ to theory/ changes doc_type). If only
+      this part changes, the payload is rewritten in one Qdrant call, vectors untouched.
     """
+    vectors = _digest([embedder.model] + [f"{c.chunk_id}|{c.header}" for c in doc.chunks])
     meta = doc.metadata.model_dump_json() if doc.metadata else ""
-    lines = [doc.rel_path, meta] + [f"{c.chunk_id}|{c.header}" for c in doc.chunks]
-    content = "\n".join(lines)
-    return f"{embedder.model}:{hashlib.sha256(content.encode()).hexdigest()[:12]}"
+    payload = _digest([doc.source, doc.rel_path, meta])
+    return f"{embedder.model}:{vectors}|{payload}"
 
 
 @dataclass
@@ -38,6 +43,7 @@ class IndexReport:
     not_chunked: list[str] = field(default_factory=list)
     errors: list[tuple[str, str]] = field(default_factory=list)
     points: int = 0
+    payload_only: list[str] = field(default_factory=list)  # moved/relabelled: no re-embedding
     stopped: str | None = None  # set when the embedder fails: every document would fail too
 
 
@@ -67,6 +73,17 @@ def index_all(
             and store.count(user_id, record.doc_id) == len(doc.chunks)
         ):
             report.up_to_date.append(record.rel_path)
+            continue
+        if (
+            not force
+            and done is not None
+            and done.version.split("|")[0] == version.split("|")[0]
+            and store.count(user_id, record.doc_id) == len(doc.chunks)
+        ):
+            # Same vectors, new path/metadata: rewrite the payload only.
+            store.update_document_payload(doc)
+            manifest.mark_done(user_id, record.doc_id, STAGE, version, done.output)
+            report.payload_only.append(record.rel_path)
             continue
         try:
             vectors = embedder.embed([c.embedding_text for c in doc.chunks])

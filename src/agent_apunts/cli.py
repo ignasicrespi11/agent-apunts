@@ -289,6 +289,7 @@ def index(
         r = index_all(manifest, s.user.id, s, make_embedder(s), store, force=force)
     console.print(
         f"{len(r.indexed)} indexed ({r.points} points), {len(r.up_to_date)} up to date, "
+        f"{len(r.payload_only)} moved/relabelled (payload only), "
         f"{len(r.not_chunked)} not chunked yet, {len(r.errors)} errors. "
         f"Collection now holds {store.count(s.user.id)} points for {s.user.id}."
     )

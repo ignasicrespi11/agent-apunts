@@ -13,6 +13,7 @@ from qdrant_client import QdrantClient, models
 
 from agent_apunts.config import Settings
 from agent_apunts.ingestion.chunk import Chunk, ChunkedDocument
+from agent_apunts.metadata import DocumentMetadata
 
 # Payload fields with an index: filtering on them stays fast as the collection grows.
 _KEYWORD_INDEXES = ("subject", "doc_type", "doc_id", "language")
@@ -29,13 +30,25 @@ class Hit:
     payload: dict
 
 
-def _payload(doc: ChunkedDocument, chunk: Chunk) -> dict:
+_METADATA_FIELDS = tuple(DocumentMetadata.model_fields)
+
+
+def document_payload(doc: ChunkedDocument) -> dict:
+    """The payload fields shared by every chunk of a document: where it is and what it is.
+    Metadata fields are always present (None when unknown) so an update can also clear them."""
     meta = doc.metadata.model_dump(mode="json") if doc.metadata else {}
+    return {
+        "source": doc.source,
+        "rel_path": doc.rel_path,
+        **{name: meta.get(name) for name in _METADATA_FIELDS},
+    }
+
+
+def _payload(doc: ChunkedDocument, chunk: Chunk) -> dict:
     return {
         "user_id": doc.user_id,
         "doc_id": doc.doc_id,
-        "source": doc.source,
-        "rel_path": doc.rel_path,
+        **document_payload(doc),  # source, rel_path, university, degree, subject, doc_type...
         "chunk_index": chunk.index,
         "page": chunk.page,
         "part": chunk.part,
@@ -43,7 +56,6 @@ def _payload(doc: ChunkedDocument, chunk: Chunk) -> dict:
         "header": chunk.header,
         "text": chunk.text,
         "language": chunk.language,
-        **meta,  # university, degree, subject, doc_type, taken_in, academic_year, professor
     }
 
 
@@ -125,6 +137,14 @@ class VectorStore:
             stale.must_not = [models.HasIdCondition(has_id=[p.id for p in points])]
         self._client.delete(self.collection, points_selector=models.FilterSelector(filter=stale))
         return len(points)
+
+    def update_document_payload(self, doc: ChunkedDocument) -> None:
+        """Rewrite the document-level payload (path, metadata) of all its points in one call,
+        keeping the vectors: a move between folders needs no re-embedding."""
+        selector = models.FilterSelector(filter=_user_filter(doc.user_id, doc_id=doc.doc_id))
+        self._client.set_payload(
+            self.collection, payload=document_payload(doc), points=selector, wait=True
+        )
 
     def delete_document(self, user_id: str, doc_id: str) -> None:
         """Remove every point of one document of one user (used by prune)."""

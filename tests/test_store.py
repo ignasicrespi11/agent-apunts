@@ -145,7 +145,10 @@ def test_moved_document_gets_its_payload_updated(manifest, settings, embedder, s
     old.rename(new)
     register_source(manifest, USER, settings.source("testing"), settings)  # moved: same doc_id
     chunk_all(manifest, USER, settings)
+    calls = embedder.calls
     report = _index(manifest, settings, embedder, store)
-    assert report.indexed == ["disseny_software/labs/patrons.pdf"]
+    # Same file name and subject -> same embedded text: payload rewritten, nothing re-embedded.
+    assert report.payload_only == ["disseny_software/labs/patrons.pdf"] and report.indexed == []
+    assert embedder.calls == calls
     hits = search("patró observador", USER, embedder, store, doc_type="labs")
     assert hits and hits[0].payload["rel_path"] == "disseny_software/labs/patrons.pdf"
