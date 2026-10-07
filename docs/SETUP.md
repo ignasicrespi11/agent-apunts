@@ -125,8 +125,25 @@ uv run agent-apunts search "què és el patró observer?"   # nearest chunks, an
 uv run agent-apunts search "TLB" --subject arquitectura_computadors
 ```
 
-Or all stages at once: `uv run agent-apunts ingest`. Every stage is incremental: re-running only processes
-new or changed work (`--force` redoes all), and re-indexing never duplicates points.
+Or all stages at once: `uv run agent-apunts ingest` (register → prune → extract → chunk → index). Every
+stage is incremental: re-running only processes new or changed work (`--force` redoes all), re-indexing
+never duplicates points, and moving a PDF between folders only updates its metadata in Qdrant.
+`prune` (also run by `ingest`) forgets PDFs you deleted or replaced; `prune --dry-run` lists them first.
+
+```bash
+uv run agent-apunts images            # how much content hides in images (code screenshots, diagrams)
+```
+
+## 6. Answers and evaluation (week 4)
+
+```bash
+ollama pull qwen2.5:7b                # local LLM (free); on a CPU-only machine answers are slow
+uv run agent-apunts ask "Què diu el patró Creator?"          # answer + [n] citations, or abstains
+uv run agent-apunts ask "TLB" --subject arquitectura_computadors
+cp eval/golden.example.yaml eval/golden.yaml   # then write your own questions (eval/README.md)
+uv run agent-apunts eval --sweep      # hit@k, MRR, abstention; pick retrieval.min_score from the sweep
+```
+Every `ask` is appended to `logs/queries.jsonl` (gitignored) with your user_id.
 Everything goes to `data/` (gitignored: it is derived from copyrighted material).
 
 Optional, with Qdrant running: `QDRANT_TEST_URL=http://localhost:6333 uv run pytest tests/test_store_server.py`
@@ -145,6 +162,7 @@ tests the store against the real server in a throwaway collection.
 | `.env` saved as `.env.txt` (Notepad) | Rename it, or save with "All files (*.*)" as the type. Check with `dir /a` or `ls -a`. |
 | `failed to connect to the docker API ... dockerDesktopLinuxEngine` | Docker Desktop is not running: open it and wait until it says "Engine running". |
 | `cannot reach Ollama` / `ollama pull bge-m3` in `index` or `search` | Start Ollama (Windows: the Ollama app; Omarchy: `sudo systemctl start ollama`) and pull the model. |
+| `ask` is very slow on Omarchy | A 7B model on a CPU takes minutes. Use the GTX 1080 PC, or a smaller model in `settings.yaml` (`llm.model`, e.g. `qwen2.5:3b`). |
 | `cannot reach Qdrant` | `docker compose up -d` (Windows: Docker Desktop must be running). |
 | `collection 'apunts' was built with ...` | The embedding model changed: set a new `qdrant.collection` in `settings.yaml` and run `index`. |
 | OneDrive (Omarchy) syncs nothing | After editing `sync_list`, run `onedrive --sync --resync`. |

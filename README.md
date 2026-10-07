@@ -24,7 +24,10 @@ uv run agent-apunts inspect <name or doc_id> [--page N] [--chunks]
 uv run agent-apunts chunk      # stages 3+4: boilerplate removal + size-based chunking
 uv run agent-apunts index      # stage 5: bge-m3 embeddings (Ollama) -> Qdrant, idempotent
 uv run agent-apunts ingest     # all stages
-uv run agent-apunts search "question" [--subject X]   # filtered semantic search (no LLM yet)
+uv run agent-apunts search "question" [--subject X]   # filtered semantic search
+uv run agent-apunts ask "question" [--subject X]      # local LLM answer with [n] page citations, or abstains
+uv run agent-apunts eval [--sweep]                    # retrieval metrics on the golden set (eval/)
+uv run agent-apunts images | prune [--dry-run]        # hidden image content | forget deleted PDFs
 ```
 
 ## Architecture
