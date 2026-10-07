@@ -242,3 +242,32 @@ def test_duplicates_finds_a_reupload(fake_services):
     result = runner.invoke(app, ["duplicates", "--min-similarity", "0.95"])
     assert result.exit_code == 0, result.output
     assert "patrons_v2.pdf" in result.output and "1 groups" in result.output
+
+
+def test_eval_answers_end_to_end(fake_services, monkeypatch):
+    from agent_apunts import cli
+    from tests.fakes import ScriptedLLM
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide"])
+    settings_file = fake_services / "config" / "settings.yaml"
+    settings_file.write_text(settings_file.read_text().replace("min_score: 0.45", "min_score: 0.0"))
+    assert runner.invoke(app, ["ingest"]).exit_code == 0
+    llm = ScriptedLLM("El patró notifica [1].", "NOT_FOUND")
+    monkeypatch.setattr(cli, "make_llm", lambda s: llm)
+    (fake_services / "eval").mkdir()
+    (fake_services / "eval" / "golden.yaml").write_text(
+        "questions:\n"
+        "  - id: observer\n"
+        "    question: patró observador\n"
+        "    language: ca\n"
+        "    expected: [{document: disseny_software/theory/patrons.pdf, pages: [1]}]\n"
+        "  - {id: none, question: mundial de futbol, language: ca, answerable: false}\n",
+        encoding="utf-8",
+    )
+    result = runner.invoke(app, ["eval", "--answers"])
+    assert result.exit_code == 0, result.output
+    assert "Abstention accuracy 100%" in result.output
+    assert "100% of answers cite an expected page" in result.output
+    assert list((fake_services / "data" / "eval").glob("answers-*.json"))

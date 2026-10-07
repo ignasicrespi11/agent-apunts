@@ -34,12 +34,14 @@ class ScriptedLLM:
 
     model = "fake-llm"
 
-    def __init__(self, *answers: str) -> None:
+    def __init__(self, *answers: str, default: str | None = None) -> None:
         self._answers = list(answers)
+        self._default = default  # returned once the scripted answers run out
         self.prompts: list[tuple[str, str]] = []
 
     def complete(self, system: str, user: str):
         from agent_apunts.llm import LLMResponse
 
         self.prompts.append((system, user))
-        return LLMResponse(text=self._answers.pop(0), model=self.model, latency_ms=1)
+        text = self._answers.pop(0) if self._answers or self._default is None else self._default
+        return LLMResponse(text=text, model=self.model, latency_ms=1)

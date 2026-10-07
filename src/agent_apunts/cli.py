@@ -436,6 +436,11 @@ def evaluate(
     filter_subject: bool = typer.Option(False, help="Also filter each query by its subject."),
     sweep: bool = typer.Option(False, help="Try min_score thresholds to calibrate abstention."),
     show_failures: bool = typer.Option(True, help="List questions whose answer was not found."),
+    answers: bool = typer.Option(
+        False,
+        help="Also run `ask` on every question with the local LLM (slow): abstention and "
+        "citation quality.",
+    ),
 ) -> None:
     """Measure retrieval on the golden set: hit@k, MRR, per language/subject/tag (D34)."""
     s = _settings()
@@ -518,6 +523,35 @@ def evaluate(
         "golden": str(path),
     }
     saved = evaluation.save_run(s, results, summary, s.paths.eval_dir)
+    console.print(f"[dim]Saved to {saved}[/dim]")
+    if answers:
+        _evaluate_answers(s, golden, filter_subject)
+
+
+def _evaluate_answers(s: Settings, golden, filter_subject: bool) -> None:
+    console.rule(f"answers ({s.llm.model}, {len(golden.questions)} questions)")
+
+    def progress(r) -> None:
+        state = f"abstained ({r.reason})" if r.abstained else f"cited {len(r.cited)}"
+        console.print(f"  {r.id}: {state}, {r.latency_ms / 1000:.1f} s")
+
+    try:
+        results = evaluation.run_answers(
+            golden, s.user.id, s, make_embedder(s), _store(s), make_llm(s), filter_subject, progress
+        )
+    except (EmbeddingError, LLMError) as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from e
+    m = evaluation.answer_metrics(results)
+    console.print(
+        f"Abstention accuracy {m.abstention_accuracy:.0%} "
+        f"({m.false_abstentions} answerable refused, "
+        f"{m.missed_abstentions} unanswerable answered)\n"
+        f"Citations: {m.citation_hit:.0%} of answers cite an expected page; "
+        f"{m.citation_precision:.0%} of citations are expected pages; {m.uncited} uncited answers\n"
+        f"Mean latency {m.mean_latency_s} s"
+    )
+    saved = evaluation.save_run(s, results, m.model_dump(), s.paths.eval_dir, kind="answers")
     console.print(f"[dim]Saved to {saved}[/dim]")
 
 

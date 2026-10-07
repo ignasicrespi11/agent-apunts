@@ -149,6 +149,7 @@ uv run agent-apunts ask "Què diu el patró Creator?"          # answer + [n] ci
 uv run agent-apunts ask "TLB" --subject arquitectura_computadors
 cp eval/golden.example.yaml eval/golden.yaml   # then write your own questions (eval/README.md)
 uv run agent-apunts eval --sweep      # hit@k, MRR, abstention; pick retrieval.min_score from the sweep
+uv run agent-apunts eval --answers    # end to end with the LLM (best on the GTX 1080 PC)
 ```
 Every `ask` is appended to `logs/queries.jsonl` (gitignored) with your user_id.
 

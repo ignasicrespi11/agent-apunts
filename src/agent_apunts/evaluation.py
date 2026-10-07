@@ -179,12 +179,16 @@ def sweep(results: list[QuestionResult]) -> list[Abstention]:
 
 
 def save_run(
-    settings: Settings, results: list[QuestionResult], summary: dict, out_dir: Path
+    settings: Settings,
+    results: list[BaseModel],
+    summary: dict,
+    out_dir: Path,
+    kind: str = "retrieval",
 ) -> Path:
     """Write the run with the settings that produced it, so two runs can be compared later."""
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    path = out_dir / f"retrieval-{stamp}.json"
+    path = out_dir / f"{kind}-{stamp}.json"
     run = {
         "timestamp": stamp,
         "settings": {
@@ -192,6 +196,7 @@ def save_run(
             "chunking": settings.chunking.model_dump(),
             "cleaning": settings.cleaning.model_dump(),
             "retrieval": settings.retrieval.model_dump(),
+            "llm": settings.llm.model_dump(),
             "collection": settings.qdrant.collection,
         },
         "summary": summary,
@@ -199,3 +204,91 @@ def save_run(
     }
     path.write_text(json.dumps(run, indent=2, ensure_ascii=False), encoding="utf-8")
     return path
+
+
+# --- End-to-end answers (D32): needs the LLM, so slower; still no judge model -----------------
+
+
+class AnswerResult(BaseModel):
+    id: str
+    answerable: bool
+    abstained: bool
+    reason: str | None
+    cited: list[str]  # "rel_path p.N" of the cited sources
+    cited_expected: int  # how many cited sources are an expected (document, page)
+    uncited: bool
+    latency_ms: int
+    answer: str
+
+
+class AnswerMetrics(BaseModel):
+    questions: int
+    abstention_accuracy: float  # answered the answerable ones, abstained on the others
+    false_abstentions: int  # answerable questions it refused
+    missed_abstentions: int  # unanswerable questions it answered anyway (the dangerous case)
+    citation_hit: float  # answered + answerable: share citing at least one expected page
+    citation_precision: float  # share of all citations that point to an expected page
+    uncited: int  # answers that cite nothing valid
+    mean_latency_s: float
+
+
+def _matches(source, expected: list[Expected]) -> bool:
+    return any(
+        source.rel_path == e.document and (not e.pages or source.page in e.pages) for e in expected
+    )
+
+
+def run_answers(
+    golden: GoldenSet,
+    user_id: str,
+    settings: Settings,
+    embedder: Embedder,
+    store: VectorStore,
+    llm,  # LLMClient (imported lazily to keep this module free of the LLM for retrieval runs)
+    filter_subject: bool = False,
+    on_answer=None,  # progress callback: answers take seconds each
+) -> list[AnswerResult]:
+    from agent_apunts.rag import ask
+
+    results = []
+    for q in golden.questions:
+        subject = q.subject if filter_subject else None
+        a = ask(q.question, user_id, settings, embedder, store, llm, subject=subject)
+        cited = [s for s in a.sources if s.number in a.cited]
+        results.append(
+            AnswerResult(
+                id=q.id,
+                answerable=q.answerable,
+                abstained=a.abstained,
+                reason=a.reason,
+                cited=[f"{s.rel_path} p.{s.page}" for s in cited],
+                cited_expected=sum(_matches(s, q.expected) for s in cited),
+                uncited=a.uncited,
+                latency_ms=a.latency_ms,
+                answer=a.answer,
+            )
+        )
+        if on_answer:
+            on_answer(results[-1])
+    return results
+
+
+def answer_metrics(results: list[AnswerResult]) -> AnswerMetrics:
+    n = len(results)
+    correct_abstention = sum(r.abstained != r.answerable for r in results)
+    answered = [r for r in results if r.answerable and not r.abstained]
+    citations = sum(len(r.cited) for r in answered)
+    return AnswerMetrics(
+        questions=n,
+        abstention_accuracy=round(correct_abstention / n, 3) if n else 0.0,
+        false_abstentions=sum(r.answerable and r.abstained for r in results),
+        missed_abstentions=sum(not r.answerable and not r.abstained for r in results),
+        citation_hit=round(sum(r.cited_expected > 0 for r in answered) / len(answered), 3)
+        if answered
+        else 0.0,
+        citation_precision=round(sum(r.cited_expected for r in answered) / citations, 3)
+        if citations
+        else 0.0,
+        uncited=sum(r.uncited for r in results if not r.abstained),
+        mean_latency_s=round(sum(r.latency_ms for r in results) / n / 1000, 1) if n else 0.0,
+    )

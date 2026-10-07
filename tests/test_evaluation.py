@@ -136,3 +136,33 @@ def test_run_questions_end_to_end(tmp_path):
     (result,) = ev.run_questions(golden, "ignasi", embedder, store, k=2)
     assert result.rank == 1 and result.best_score is not None
     assert result.top[0].startswith("ds/theory/patterns.pdf p.1")
+
+
+def _answer(answerable, abstained, cited=(), cited_expected=0, uncited=False):
+    return ev.AnswerResult(
+        id="q",
+        answerable=answerable,
+        abstained=abstained,
+        reason=None,
+        cited=list(cited),
+        cited_expected=cited_expected,
+        uncited=uncited,
+        latency_ms=2000,
+        answer="",
+    )
+
+
+def test_answer_metrics():
+    results = [
+        _answer(True, False, cited=["a p.1", "b p.2"], cited_expected=1),  # good, 1 of 2 right
+        _answer(True, False, cited=["c p.9"], cited_expected=0),  # cites the wrong page
+        _answer(True, True),  # false abstention
+        _answer(False, True),  # correct abstention
+        _answer(False, False, uncited=True),  # missed abstention, and uncited
+    ]
+    m = ev.answer_metrics(results)
+    assert m.abstention_accuracy == round(3 / 5, 3)
+    assert (m.false_abstentions, m.missed_abstentions) == (1, 1)
+    assert m.citation_hit == 0.5  # 1 of the 2 answered answerable questions
+    assert m.citation_precision == round(1 / 3, 3)
+    assert m.uncited == 1 and m.mean_latency_s == 2.0

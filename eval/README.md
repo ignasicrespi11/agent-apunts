@@ -24,6 +24,7 @@ Copy `golden.example.yaml` to `golden.yaml` and replace the examples. Aim for **
 uv run agent-apunts eval                 # hit@1/3/5, MRR, per language / subject / tag
 uv run agent-apunts eval --sweep         # + abstention quality for min_score 0.20..0.80
 uv run agent-apunts eval --filter-subject   # each query filtered by its subject
+uv run agent-apunts eval --answers       # + runs `ask` (local LLM, slow): abstention + citation quality
 ```
 Each run is saved to `data/eval/retrieval-<timestamp>.json` with the settings used, so runs before
 and after a change (cleaning, chunking, OCR, model) can be compared.
