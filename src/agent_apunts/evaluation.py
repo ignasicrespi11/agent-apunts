@@ -89,13 +89,16 @@ def run_questions(
     store: VectorStore,
     k: int,
     filter_subject: bool = False,
+    hybrid: bool = False,
 ) -> list[QuestionResult]:
     # One batched embedding call for all questions: much faster than one call each.
     vectors = embedder.embed([q.question for q in golden.questions])
     results = []
     for q, vector in zip(golden.questions, vectors, strict=True):
         subject = q.subject if filter_subject else None
-        hits = store.search(user_id, vector, limit=k, subject=subject)
+        hits = store.search(
+            user_id, vector, limit=k, subject=subject, query_text=q.question if hybrid else None
+        )
         results.append(
             QuestionResult(
                 id=q.id,
@@ -104,7 +107,7 @@ def run_questions(
                 tags=q.tags,
                 answerable=q.answerable,
                 rank=first_correct_rank(hits, q.expected) if q.answerable else None,
-                best_score=round(hits[0].score, 4) if hits else None,
+                best_score=round(max(h.score for h in hits), 4) if hits else None,
                 top=[
                     f"{h.payload.get('rel_path')} p.{h.payload.get('page')} ({h.score:.3f})"
                     for h in hits

@@ -126,6 +126,7 @@ class DetectionSettings(_Strict):
 class RetrievalSettings(_Strict):
     top_k: int = Field(gt=0)
     min_score: float = Field(ge=-1, le=1)  # cosine similarity
+    hybrid: bool
 
 
 class Source(_Strict):

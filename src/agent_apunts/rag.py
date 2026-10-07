@@ -138,11 +138,21 @@ def ask(
     doc_type: str | None = None,
 ) -> Answer:
     filters = {k: v for k, v in {"subject": subject, "doc_type": doc_type}.items() if v}
-    hits = search(question, user_id, embedder, store, settings.retrieval.top_k, subject, doc_type)
+    hits = search(
+        question,
+        user_id,
+        embedder,
+        store,
+        settings.retrieval.top_k,
+        subject,
+        doc_type,
+        hybrid=settings.retrieval.hybrid,
+    )
     base = {"user_id": user_id, "question": question, "filters": filters, "sources": _sources(hits)}
 
-    # Gate 1 (cheap): nothing similar enough in the notes -> don't spend LLM time.
-    if not hits or hits[0].score < settings.retrieval.min_score:
+    # Gate 1 (cheap): nothing similar enough in the notes -> don't spend LLM time. max(), not the
+    # first hit: with hybrid search the top-ranked chunk isn't always the most similar one.
+    if not hits or max(h.score for h in hits) < settings.retrieval.min_score:
         reason: AbstainReason = "no_results" if not hits else "low_score"
         message = _not_in_notes(question, settings)
         return Answer(**base, answer=message, abstained=True, reason=reason, cited=[])

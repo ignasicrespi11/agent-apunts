@@ -268,6 +268,13 @@ def _print_chunks(s: Settings, doc_id: str, page: int | None) -> None:
     console.print(table)
 
 
+def _with_hybrid(s: Settings, hybrid: bool | None) -> Settings:
+    """Settings with retrieval.hybrid overridden by a --hybrid/--no-hybrid flag, if given."""
+    if hybrid is None:
+        return s
+    return s.model_copy(update={"retrieval": s.retrieval.model_copy(update={"hybrid": hybrid})})
+
+
 def _store(s: Settings) -> VectorStore:
     store = VectorStore.from_settings(s)
     try:
@@ -325,14 +332,25 @@ def search(
     subject: str | None = typer.Option(None, help="Only this subject (folder name)."),
     doc_type: str | None = typer.Option(None, help="Only this doc_type (theory, exams...)."),
     limit: int = typer.Option(5, help="How many chunks to return."),
+    hybrid: bool | None = typer.Option(
+        None, "--hybrid/--no-hybrid", help="Fuse keyword search (D37). Default: settings.yaml."
+    ),
 ) -> None:
-    """Show the chunks most similar to a question (retrieval only, no LLM yet)."""
+    """Show the chunks most similar to a question (retrieval only, no LLM)."""
     s = _settings()
     if subject is not None and subject not in s.subjects:
         console.print(f"[red]Unknown subject {subject!r}[/red] (known: {', '.join(s.subjects)})")
         raise typer.Exit(1)
+    use_hybrid = s.retrieval.hybrid if hybrid is None else hybrid
     hits = retrieve(
-        question, s.user.id, make_embedder(s), _store(s), limit, subject=subject, doc_type=doc_type
+        question,
+        s.user.id,
+        make_embedder(s),
+        _store(s),
+        limit,
+        subject=subject,
+        doc_type=doc_type,
+        hybrid=use_hybrid,
     )
     if not hits:
         console.print("No chunks found. Has anything been indexed? (`agent-apunts index`)")
@@ -390,9 +408,12 @@ def ask(
     question: str = typer.Argument(help="Your question, in Catalan, Spanish or English."),
     subject: str | None = typer.Option(None, help="Only this subject (folder name)."),
     doc_type: str | None = typer.Option(None, help="Only this doc_type (theory, exams...)."),
+    hybrid: bool | None = typer.Option(
+        None, "--hybrid/--no-hybrid", help="Fuse keyword search (D37). Default: settings.yaml."
+    ),
 ) -> None:
     """Answer from your notes only, citing document and page; abstain if they don't say (D32)."""
-    s = _settings()
+    s = _with_hybrid(_settings(), hybrid)
     if subject is not None and subject not in s.subjects:
         console.print(f"[red]Unknown subject {subject!r}[/red] (known: {', '.join(s.subjects)})")
         raise typer.Exit(1)
@@ -436,6 +457,9 @@ def evaluate(
     filter_subject: bool = typer.Option(False, help="Also filter each query by its subject."),
     sweep: bool = typer.Option(False, help="Try min_score thresholds to calibrate abstention."),
     show_failures: bool = typer.Option(True, help="List questions whose answer was not found."),
+    hybrid: bool | None = typer.Option(
+        None, "--hybrid/--no-hybrid", help="Fuse keyword search (D37). Default: settings.yaml."
+    ),
     answers: bool = typer.Option(
         False,
         help="Also run `ask` on every question with the local LLM (slow): abstention and "
@@ -443,7 +467,10 @@ def evaluate(
     ),
 ) -> None:
     """Measure retrieval on the golden set: hit@k, MRR, per language/subject/tag (D34)."""
-    s = _settings()
+    s = _with_hybrid(_settings(), hybrid)
+    console.print(
+        f"[dim]retrieval: {'hybrid (dense + keywords)' if s.retrieval.hybrid else 'dense'}[/dim]"
+    )
     path = Path(file) if Path(file).is_absolute() else s.paths.project_root / file
     if not path.is_file():
         console.print(
@@ -463,7 +490,7 @@ def evaluate(
 
     try:
         results = evaluation.run_questions(
-            golden, s.user.id, make_embedder(s), _store(s), k, filter_subject
+            golden, s.user.id, make_embedder(s), _store(s), k, filter_subject, s.retrieval.hybrid
         )
     except EmbeddingError as e:
         console.print(f"[red]{e}[/red]")
@@ -520,6 +547,7 @@ def evaluate(
         "abstention": gate.model_dump(),
         "k": k,
         "filter_subject": filter_subject,
+        "hybrid": s.retrieval.hybrid,
         "golden": str(path),
     }
     saved = evaluation.save_run(s, results, summary, s.paths.eval_dir)

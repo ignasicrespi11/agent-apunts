@@ -4,6 +4,10 @@ One collection for everyone; every point carries `user_id` in its payload, index
 key, and every search filters on it INSIDE the Qdrant query (CLAUDE.md: never after retrieval, or a
 user could see another user's notes and top-k would be wrong). The collection remembers which
 embedding model built it (D28) and refuses vectors or queries from a different one.
+
+Schema 2 (D37): every point has two named vectors, "dense" (bge-m3 embedding, cosine) and "sparse"
+(BM25-style keywords, IDF computed by Qdrant). Search uses dense only, or both fused with RRF
+(reciprocal rank fusion: a chunk ranked high by either method rises) when hybrid is on.
 """
 
 from collections.abc import Sequence
@@ -14,9 +18,16 @@ from qdrant_client import QdrantClient, models
 from agent_apunts.config import Settings
 from agent_apunts.ingestion.chunk import Chunk, ChunkedDocument
 from agent_apunts.metadata import DocumentMetadata
+from agent_apunts.sparse import Sparse, encode_document, encode_query
 
 # Payload fields with an index: filtering on them stays fast as the collection grows.
 _KEYWORD_INDEXES = ("subject", "doc_type", "doc_id", "language")
+SCHEMA = 2  # 1: one unnamed dense vector. 2: named "dense" + "sparse" vectors (D37)
+DENSE, SPARSE = "dense", "sparse"
+
+
+def _sparse(s: Sparse) -> models.SparseVector:
+    return models.SparseVector(indices=s.indices, values=s.values)
 
 
 class StoreError(RuntimeError):
@@ -26,7 +37,9 @@ class StoreError(RuntimeError):
 @dataclass(frozen=True)
 class Hit:
     chunk_id: str
-    score: float  # cosine similarity: higher = closer in meaning
+    # Cosine similarity with the question (meaning), even when the ORDER of the hits comes from
+    # hybrid fusion: RRF scores only reflect ranks, so thresholds (D32) always use this number.
+    score: float
     payload: dict
 
 
@@ -68,17 +81,27 @@ def _user_filter(user_id: str, **equals: str | None) -> models.Filter:
 
 
 class VectorStore:
-    def __init__(self, client: QdrantClient, collection: str, model: str, dimension: int) -> None:
+    def __init__(
+        self,
+        client: QdrantClient,
+        collection: str,
+        model: str,
+        dimension: int,
+        avg_chunk_words: float = 350,  # BM25 length normalisation (sparse.py)
+    ) -> None:
         self._client = client
         self.collection = collection
         self.model = model
         self.dimension = dimension
+        self._avg_len = avg_chunk_words
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "VectorStore":
         client = QdrantClient(url=settings.qdrant.url, timeout=60)
         e = settings.embedding
-        return cls(client, settings.qdrant.collection, e.model, e.dimension)
+        return cls(
+            client, settings.qdrant.collection, e.model, e.dimension, settings.chunking.target_words
+        )
 
     def ensure_collection(self) -> None:
         """Create the collection (with its indexes) if missing; check its model if it exists."""
@@ -93,10 +116,11 @@ class VectorStore:
             return
         self._client.create_collection(
             self.collection,
-            vectors_config=models.VectorParams(
-                size=self.dimension, distance=models.Distance.COSINE
-            ),
-            metadata={"embedding_model": self.model, "dimension": self.dimension},
+            vectors_config={
+                DENSE: models.VectorParams(size=self.dimension, distance=models.Distance.COSINE)
+            },
+            sparse_vectors_config={SPARSE: models.SparseVectorParams(modifier=models.Modifier.IDF)},
+            metadata={"embedding_model": self.model, "dimension": self.dimension, "schema": SCHEMA},
         )
         # is_tenant: Qdrant stores each user's points together, so per-user searches stay fast.
         self._client.create_payload_index(
@@ -112,6 +136,12 @@ class VectorStore:
     def _check_model(self) -> None:
         info = self._client.get_collection(self.collection)
         stored = info.config.metadata or {}
+        if stored.get("schema") != SCHEMA:
+            raise StoreError(
+                f"collection '{self.collection}' uses an older layout (schema "
+                f"{stored.get('schema', 1)}, now {SCHEMA}: dense + sparse vectors). Delete it in "
+                "the Qdrant dashboard (or use a new qdrant.collection name) and run `index` again."
+            )
         if (stored.get("embedding_model"), stored.get("dimension")) != (self.model, self.dimension):
             raise StoreError(
                 f"collection '{self.collection}' was built with {stored.get('embedding_model')} "
@@ -127,7 +157,14 @@ class VectorStore:
         if len(vectors) != len(doc.chunks):
             raise ValueError("one vector per chunk expected")
         points = [
-            models.PointStruct(id=c.chunk_id, vector=list(v), payload=_payload(doc, c))
+            models.PointStruct(
+                id=c.chunk_id,
+                vector={
+                    DENSE: list(v),
+                    SPARSE: _sparse(encode_document(c.embedding_text, self._avg_len)),
+                },
+                payload=_payload(doc, c),
+            )
             for c, v in zip(doc.chunks, vectors, strict=True)
         ]
         if points:
@@ -166,13 +203,51 @@ class VectorStore:
         limit: int,
         subject: str | None = None,
         doc_type: str | None = None,
+        query_text: str | None = None,
     ) -> list[Hit]:
-        """Nearest chunks to `vector` among this user's chunks (filter applied inside Qdrant)."""
-        response = self._client.query_points(
+        """Best chunks among this user's chunks (filters applied inside Qdrant).
+
+        Dense only by default; with `query_text`, hybrid: dense and keyword (sparse) candidates
+        fused with RRF. Either way each Hit.score is the dense cosine similarity."""
+        flt = _user_filter(user_id, subject=subject, doc_type=doc_type)
+        if query_text is None:
+            response = self._client.query_points(
+                self.collection,
+                query=list(vector),
+                using=DENSE,
+                query_filter=flt,
+                limit=limit,
+                with_payload=True,
+            )
+            return [Hit(str(p.id), p.score, p.payload or {}) for p in response.points]
+
+        candidates = limit * 4  # each method proposes more than k; fusion picks the final k
+        fused = self._client.query_points(
             self.collection,
-            query=list(vector),
-            query_filter=_user_filter(user_id, subject=subject, doc_type=doc_type),
+            prefetch=[
+                models.Prefetch(query=list(vector), using=DENSE, filter=flt, limit=candidates),
+                models.Prefetch(
+                    query=_sparse(encode_query(query_text)),
+                    using=SPARSE,
+                    filter=flt,
+                    limit=candidates,
+                ),
+            ],
+            query=models.FusionQuery(fusion=models.Fusion.RRF),
+            query_filter=flt,
             limit=limit,
             with_payload=True,
-        )
-        return [Hit(str(p.id), p.score, p.payload or {}) for p in response.points]
+        ).points
+        if not fused:
+            return []
+        # Cosine similarity of exactly these points, for the abstention threshold (D32).
+        ids = [p.id for p in fused]
+        dense = self._client.query_points(
+            self.collection,
+            query=list(vector),
+            using=DENSE,
+            query_filter=models.Filter(must=[*flt.must, models.HasIdCondition(has_id=ids)]),
+            limit=len(ids),
+        ).points
+        cosine = {str(p.id): p.score for p in dense}
+        return [Hit(str(p.id), cosine.get(str(p.id), 0.0), p.payload or {}) for p in fused]
