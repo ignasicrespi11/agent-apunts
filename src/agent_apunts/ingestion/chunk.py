@@ -73,6 +73,7 @@ def chunker_version(settings: Settings, extractor: str, record: DocumentRecord) 
             record.source,
             record.rel_path,
             record.metadata.model_dump(mode="json") if record.metadata else None,
+            _subject_name(record, settings),  # shown in the header: renaming it re-chunks
         ],
         sort_keys=True,
     )
@@ -89,10 +90,16 @@ def _document_label(rel_path: str) -> str:
     return Path(rel_path).stem.replace("_", " ").replace("-", " ")
 
 
+def _subject_name(record: DocumentRecord, settings: Settings) -> str | None:
+    if record.metadata and record.metadata.subject in settings.subjects:
+        return settings.subjects[record.metadata.subject].name
+    return None
+
+
 def _header(record: DocumentRecord, settings: Settings, title: str | None, page: int) -> str:
     parts = []
-    if record.metadata and record.metadata.subject in settings.subjects:
-        parts.append(settings.subjects[record.metadata.subject].name)
+    if subject := _subject_name(record, settings):
+        parts.append(subject)
     parts.append(_document_label(record.rel_path))
     parts.append(title or f"p. {page}")
     return " · ".join(parts)

@@ -133,7 +133,7 @@ def register(
             )
             _list("moved or relabelled (old -> new)", r.moved, "cyan")
             _list("duplicates, skipped (file -> kept copy)", r.duplicates)
-            _list("missing: in the manifest but not on disk", r.missing)
+            _list("missing: in the manifest but not on disk (`prune` removes them)", r.missing)
             _list("errors", r.errors, "red")
 
 

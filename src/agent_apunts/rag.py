@@ -109,11 +109,10 @@ def _sources(hits: list[Hit]) -> list[Source]:
 
 
 def _not_in_notes(question: str, settings: Settings) -> str:
-    ex = settings.extraction
-    language = detect_language(
-        question, tuple(settings.languages), ex.language_min_chars, ex.language_min_confidence
-    )
-    return NOT_IN_NOTES.get(language or "en", NOT_IN_NOTES["en"])
+    # Questions are short ("Què és un TLB?"): a lower bar than for pages, and if still unsure,
+    # the user's first configured language rather than English.
+    language = detect_language(question, tuple(settings.languages), min_chars=5, min_confidence=0.5)
+    return NOT_IN_NOTES.get(language or settings.languages[0], NOT_IN_NOTES["en"])
 
 
 def ask(

@@ -116,3 +116,17 @@ def test_log_has_user_id_and_appends(settings, indexed, tmp_path):
     assert len(lines) == 2
     assert all(line["user_id"] == USER and line["timestamp"] for line in lines)
     assert lines[0]["sources"][0]["chunk_id"]
+
+
+@pytest.mark.parametrize(
+    "question,expected",
+    [
+        ("Què és un TLB?", "No ho he trobat als teus apunts."),
+        ("¿Qué es una TLB?", "No lo he encontrado en tus apuntes."),
+        ("What is a TLB?", "I couldn't find this in your notes."),
+        ("TLB?", "No ho he trobat als teus apunts."),  # undecidable: first configured language
+    ],
+)
+def test_abstention_message_follows_short_questions(settings, indexed, question, expected):
+    answer = _ask(question, _with_min_score(settings, 0.99), indexed, ScriptedLLM())
+    assert answer.answer == expected

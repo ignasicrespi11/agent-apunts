@@ -85,3 +85,13 @@ def test_documents_not_extracted_are_listed(settings):
         register_source(m, USER, settings.source("testing"), settings)
         report = chunk_all(m, USER, settings)
     assert report.not_extracted == ["disseny_software/labs/lab.pdf"]
+
+
+def test_renaming_a_subject_rechunks(manifest, settings, project):
+    chunk_all(manifest, USER, settings)
+    path = project / "config" / "sources.yaml"
+    path.write_text(path.read_text().replace("Disseny de Software", "Software Design"))
+    renamed = load_settings(project)
+    report = chunk_all(manifest, USER, renamed)
+    assert report.chunked == ["disseny_software/theory/patrons.pdf"]
+    assert _doc(manifest, renamed, "patrons").chunks[0].header.startswith("Software Design ·")
