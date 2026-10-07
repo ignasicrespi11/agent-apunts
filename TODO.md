@@ -17,7 +17,8 @@ Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Week 2's code was built early 
 - First real extraction (2026-10-06, Omarchy): 108 docs, 2,059 pages, 0 errors, register idempotent. 20 pages with
   no text: exam pages 16–24 of `examen1_2024_25-solucions` are **blank pages** (checked by Ignasi), the rest are
   blank/separator pages in the problem books → no scanned content found, OCR stays in the parking lot.
-  Title heuristic: bullets taken as title (fixed, loader v2); big callouts mid-slide may be taken as titles (pending).
+  Title heuristic: bullets taken as title (fixed, loader v2); big callouts low on the slide taken as titles (fixed, v3:
+  top 30% only). Windows run (2026-10-07) gives identical doc_ids, page counts and empty pages as Omarchy.
 
 ## Now — Week 1: foundations
 - [x] Architecture proposal (Opus) → `docs/ARCHITECTURE.md`
@@ -38,7 +39,7 @@ Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Week 2's code was built early 
 - [ ] (Ignasi) This Windows PC: create `.env` from `.env.example` with `TESTING_DIR` (not done yet as of 2026-09-30)
 - [ ] (Ignasi) Omarchy + second Windows PC: follow `docs/SETUP.md` steps 1–3
 - [x] Config loader reads `APUNTS_DIR` / `TESTING_DIR` / `QDRANT_URL` from `.env`; `uv run agent-apunts config` prints resolved paths + document counts
-- [ ] (Ignasi) On each machine (Omarchy ✓ 2026-10-06): `uv run agent-apunts config` must show 108 documents (110 analysed minus 2 exact duplicates removed) and no "problem" lines
+- [ ] (Ignasi) On each machine (Omarchy ✓ 2026-10-06, Windows PC 2 ✓ 2026-10-07): `uv run agent-apunts config` must show 108 documents (110 analysed minus 2 exact duplicates removed) and no "problem" lines
 - [ ] (Ignasi) Check subject names in `config/sources.yaml` (written by Claude from the folder names)
 - [ ] (Ignasi) Once `TESTING_DIR` works, delete the duplicate local copy in `testing/apunts_testing/` (keep OneDrive as the single source)
 - [ ] Learn: reading Python (modules, imports, type hints, dataclasses/Pydantic, pytest)
@@ -91,3 +92,4 @@ Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Week 2's code was built early 
 - 2026-09-30: Metadata draft generated from PDFs (testing/sources_draft.yaml); findings on professor/year/language recorded. Model policy: Opus for first coding sessions.
 - 2026-09-30: Dev environment: pyproject + uv.lock (Python 3.12, minimal deps), Qdrant via docker-compose, smoke tests. Devcontainer dropped (native uv).
 - 2026-10-05: (cloud session, Opus) New rule: sessions use the whole token budget, every why documented. Config + DocumentMetadata, `config` command, manifest + loader registry + PDF extraction + `inspect` (D20–D25), week-01 summary. 71 tests pass. Not yet run on real PDFs. Push was blocked (GitHub App access) at first.
+- 2026-10-06/07: First real-corpus runs (Omarchy, Windows PC 2): 2 extraction fixes (empty-pages crash, title heuristic v2/v3), setup scripts fixed (clone path, WSL check aborting on PS 5.1, TESTING_DIR auto-fill, Smart App Control diagnosis).
