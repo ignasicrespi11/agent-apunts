@@ -54,13 +54,15 @@ write the golden set.
 - [x] W3 (built 7 Oct, D26–D29): boilerplate cleaning + size-based chunking with contextual header; Embedder interface + Ollama bge-m3; Qdrant collection with model metadata + payload indexes (user_id tenant, subject…); idempotent index; filtered search; `chunk` / `index` / `ingest` / `search` CLI; 112 tests (+3 opt-in against a real Qdrant, verified on 1.19.1)
 - [ ] **Next (Ignasi, machine with PDFs):** `git pull`, re-run the setup script (installs Ollama + pulls bge-m3), `docker compose up -d`, then `uv run agent-apunts ingest`. Check: (1) `chunk` output's boilerplate list has no real sentences/formulas; (2) `inspect IS2526-ExamenFinal --chunks` splits the dense pages; (3) running `ingest` twice keeps the same point count; (4) 5 `search` questions in ca/es/en find the right slides (note results for week 4)
 - [ ] Tune cleaning/chunking thresholds from that check (settings.yaml; changing them re-chunks automatically)
-- [x] W4 code (built 8 Oct overnight, PR #3, *proposed* D30–D35): `images` report (hidden image content); LLMClient + Ollama; `ask` with [n] citations, two abstention gates, query log; eval harness (hit@k, MRR, abstention sweep); prune of deleted/replaced PDFs; payload-only updates on moves; review fixes. 166 tests
+- [x] W4 code (built 8 Oct overnight, PR #3, *proposed* D30–D36): `images` report (hidden image content); LLMClient + Ollama; `ask` with [n] citations, two abstention gates, query log; eval harness (hit@k, MRR, abstention sweep, `--answers` end to end); prune of deleted/replaced PDFs; payload-only updates on moves; `detect` (D36, D18 without LLM) + `--evaluate`; `duplicates` report (D19 step 1); `doctor`; `docs/CODE_TOUR.md`; review fixes. 187 tests
 - [ ] **(Ignasi)** Review PR #3; accept or change the proposed decisions D30–D35 in `docs/ARCHITECTURE.md`
 - [ ] **(Ignasi)** Write `eval/golden.yaml`: 20 questions (ca/es/en, 3–4 unanswerable, some tagged `code-image`), see `eval/README.md`
 - [ ] Run `eval --sweep` on the real corpus → set `retrieval.min_score`; first numbers for the weekly summary
 - [ ] `ollama pull qwen2.5:7b` on the GTX 1080 PC; try `ask` on 10 questions, note wrong/uncited answers
 - [ ] Run `images` on the real corpus → decide whether an OCR stage (D30 step 3) is worth building
-- [ ] Metadata auto-detection (D18) + accuracy vs manually organised subjects
+- [ ] Run `detect --evaluate` on the real corpus → subject accuracy (CV number), tune `detection.min_margin`
+- [ ] Run `duplicates` → decide D19 threshold and how search collapses groups
+- [ ] (Ignasi) Read `docs/CODE_TOUR.md` before reviewing PR #3
 - 🛑 26–30 Oct: exams
 
 ## Phase 2 — Agent, interface, retrieval (2 Nov – 22 Dec)

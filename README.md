@@ -33,7 +33,8 @@ uv run agent-apunts detect [--evaluate]               # suggest subject/doc_type
 ```
 
 ## Architecture
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (decisions and why) and
+[docs/CODE_TOUR.md](docs/CODE_TOUR.md) (how to read and check the code).
 
 ## Stack
 Python 3.12 · uv · Pydantic · PyMuPDF · Qdrant (Docker) · bge-m3 embeddings · Ollama → Claude API · Typer · FastAPI · Streamlit · pytest
