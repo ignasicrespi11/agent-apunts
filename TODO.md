@@ -44,7 +44,7 @@ write the golden set.
 - [ ] (Ignasi) On each machine (Omarchy ✓ 2026-10-06, Windows PC 2 ✓ 2026-10-07): `uv run agent-apunts config` must show 108 documents (110 analysed minus 2 exact duplicates removed) and no "problem" lines
 - [ ] (Ignasi) Check subject names in `config/sources.yaml` (written by Claude from the folder names)
 - [ ] (Ignasi) Once `TESTING_DIR` works, delete the duplicate local copy in `testing/apunts_testing/` (keep OneDrive as the single source)
-- [ ] Learn: reading Python (modules, imports, type hints, dataclasses/Pydantic, pytest)
+- [ ] Learn: reading Python (modules, imports, type hints, dataclasses/Pydantic, pytest) → start with `docs/CODE_TOUR.md`
 - [x] Sunday: `docs/weekly/week-01.md`
 
 ## Phase 1 — First version (to 25 Oct)
@@ -61,6 +61,7 @@ write the golden set.
 - [ ] Run `eval` and `eval --hybrid` → turn `retrieval.hybrid` on if it wins (D37)
 - [ ] `ollama pull qwen2.5:7b` on the GTX 1080 PC; try `ask` on 10 questions, note wrong/uncited answers
 - [ ] Run `images` on the real corpus → decide whether an OCR stage (D30 step 3) is worth building
+- [ ] Sunday: finish `docs/weekly/week-02.md` (draft exists; fill the TODO numbers from eval/detect/images)
 - [ ] Run `detect --evaluate` on the real corpus → subject accuracy (CV number), tune `detection.min_margin`
 - [ ] Run `duplicates` → decide D19 threshold and how search collapses groups
 - [ ] (Ignasi) Read `docs/CODE_TOUR.md` before reviewing PR #3
