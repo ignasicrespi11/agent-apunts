@@ -13,7 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 @pytest.fixture(autouse=True)
 def _isolated_env(monkeypatch):
     """Tests must not depend on the developer's real environment variables."""
-    for name in ("APUNTS_DIR", "TESTING_DIR", "QDRANT_URL"):
+    for name in ("APUNTS_DIR", "TESTING_DIR", "QDRANT_URL", "OLLAMA_URL"):
         monkeypatch.delenv(name, raising=False)
 
 

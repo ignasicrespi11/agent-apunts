@@ -17,7 +17,7 @@ from typing import Literal
 
 import yaml
 from dotenv import dotenv_values
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from agent_apunts.metadata import AcademicYear, Slug
 
@@ -67,9 +67,33 @@ class ExtractionSettings(_Strict):
     language_min_confidence: float = Field(ge=0, le=1)
 
 
+class CleaningSettings(_Strict):
+    repeated_line_min_share: float = Field(gt=0, le=1)
+    repeated_line_min_pages: int = Field(ge=2)
+    repeated_line_max_chars: int = Field(gt=0)
+
+
+class ChunkingSettings(_Strict):
+    max_words: int = Field(gt=0)
+    target_words: int = Field(gt=0)
+    min_words: int = Field(ge=0)
+
+    @model_validator(mode="after")
+    def _sizes_are_ordered(self) -> ChunkingSettings:
+        if not self.min_words <= self.target_words <= self.max_words:
+            raise ValueError("chunking needs min_words <= target_words <= max_words")
+        return self
+
+
 class EmbeddingSettings(_Strict):
+    provider: Literal["ollama"]
     model: str
     dimension: int = Field(gt=0)
+    batch_size: int = Field(gt=0)
+
+
+class OllamaSettings(_Strict):
+    url: str
 
 
 class QdrantSettings(_Strict):
@@ -99,8 +123,11 @@ class Settings(_Strict):
     languages: list[str] = Field(min_length=1)
     paths: Paths
     extraction: ExtractionSettings
+    cleaning: CleaningSettings
+    chunking: ChunkingSettings
     embedding: EmbeddingSettings
     qdrant: QdrantSettings
+    ollama: OllamaSettings
     llm: LLMSettings
     subjects: dict[Slug, Subject]
 
@@ -124,6 +151,7 @@ _ENV_VARS = {
     "APUNTS_DIR": "apunts",
     "TESTING_DIR": "testing/apunts_testing",
     "QDRANT_URL": "http://localhost:6333",
+    "OLLAMA_URL": "http://localhost:11434",
 }
 
 
@@ -185,6 +213,7 @@ def load_settings(project_root: Path | None = None) -> Settings:
         "data_dir": _resolve(data_dir, root),
     }
     raw.setdefault("qdrant", {})["url"] = env["QDRANT_URL"]
+    raw["ollama"] = {"url": env["OLLAMA_URL"]}
     raw["subjects"] = sources.get("subjects") or {}
 
     try:

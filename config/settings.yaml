@@ -26,9 +26,29 @@ extraction:
   language_min_chars: 20
   language_min_confidence: 0.8
 
+# Stage 3, CLEAN (D27): a line is boilerplate (logo text, footer, course name) when it appears on at
+# least this share of a document's pages, on at least this many pages, and is short. Digits are
+# ignored when comparing ("Page 3" == "Page 4"). Bare page numbers are always removed.
+cleaning:
+  repeated_line_min_share: 0.5
+  repeated_line_min_pages: 3
+  repeated_line_max_chars: 100
+
+# Stage 4, CHUNK (D26): size decides. A page up to max_words is one chunk; longer pages are cut at
+# paragraph (then line) boundaries into chunks of about target_words, never above max_words.
+# Pages with fewer than min_words words produce no chunk (images, blank pages: D14, D29).
+chunking:
+  max_words: 450
+  target_words: 350
+  min_words: 5
+
+# Stage 5, INDEX (D28). The SAME model must embed chunks and queries: the name and dimension are
+# also stored in the Qdrant collection, and indexing refuses to mix models.
 embedding:
-  model: BAAI/bge-m3
+  provider: ollama
+  model: bge-m3  # BAAI/bge-m3 as served by Ollama: `ollama pull bge-m3`
   dimension: 1024
+  batch_size: 32
 
 qdrant:
   collection: apunts

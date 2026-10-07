@@ -22,11 +22,11 @@ Built for one user first, and designed to later scale to other degrees, universi
 - User/subject filtering happens **inside the vector DB query** (a Qdrant filter), never after retrieval.
 - No hardcoded subjects, paths, universities or model names. They come from `config/*.yaml` and `.env`.
 - Ingestion is modular: one loader per file format, registered by extension.
-- Chunk IDs are deterministic (hash of user_id + path + index + content), so re-ingesting is idempotent.
+- Chunk IDs are deterministic (hash of user_id + doc_id + index + content; doc_id, not path, so moves keep IDs), so re-ingesting is idempotent.
 - The embedding model used for ingestion and for queries must be the same. It's stored in config and in the collection metadata.
 - Pipeline is staged and incremental (register → extract → clean → chunk → index); intermediate outputs in `data/`. Queries never read PDFs.
 - Metadata auto-detection (D18, week 4+): folder name wins if present; manual folders are the ground truth to measure it.
-- Layout-aware chunking (D13): slide page = 1 chunk; dense A4 page = split by headings/paragraphs (~300–500 words); page number + contextual header always. Answers only from retrieved notes, with citations; abstain if nothing relevant.
+- Chunking (D13, D26): size decides — page ≤ 450 words = 1 chunk, longer pages split by paragraphs (~350 words); page number + contextual header always. Answers only from retrieved notes, with citations; abstain if nothing relevant.
 - **Course material is copyrighted: never commit PDFs, processed text, thumbnails or `data/`.** Test fixtures must be self-generated.
 - Out of scope (roadmap only): authentication, billing/quotas, distributed deployment.
 

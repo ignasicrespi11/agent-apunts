@@ -46,9 +46,13 @@ def show_config() -> None:
     s = _settings()
     console.print(f"[bold]User[/bold]       {s.user.id} ({s.user.university} · {s.user.degree})")
     console.print(f"[bold]Languages[/bold]  {', '.join(s.languages)}")
-    console.print(f"[bold]Embedding[/bold]  {s.embedding.model} ({s.embedding.dimension} dims)")
+    console.print(
+        f"[bold]Embedding[/bold]  {s.embedding.provider} / {s.embedding.model}"
+        f" ({s.embedding.dimension} dims)"
+    )
     console.print(f"[bold]LLM[/bold]        {s.llm.provider} / {s.llm.model}")
     console.print(f"[bold]Qdrant[/bold]     {s.qdrant.url} (collection '{s.qdrant.collection}')")
+    console.print(f"[bold]Ollama[/bold]     {s.ollama.url}")
     console.print(f"[bold]Data dir[/bold]   {s.paths.data_dir}")
     console.print(f"[bold]Subjects[/bold]   {', '.join(s.subjects) or '(none)'}")
     for source in s.sources:

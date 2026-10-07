@@ -73,3 +73,16 @@ def test_project_root_found_from_subfolder(project):
 def test_project_root_not_found(tmp_path: Path):
     with pytest.raises(ConfigError):
         find_project_root(tmp_path)
+
+
+def test_chunk_sizes_must_be_ordered(project):
+    path = project / "config" / "settings.yaml"
+    path.write_text(path.read_text().replace("target_words: 350", "target_words: 900"))
+    with pytest.raises(ConfigError, match="min_words <= target_words <= max_words"):
+        load_settings(project)
+
+
+def test_ollama_url_from_env(project, monkeypatch):
+    assert load_settings(project).ollama.url == "http://localhost:11434"
+    monkeypatch.setenv("OLLAMA_URL", "http://gpu-pc:11434")
+    assert load_settings(project).ollama.url == "http://gpu-pc:11434"
