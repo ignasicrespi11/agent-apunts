@@ -65,6 +65,12 @@ Step "Python 3.12 via uv"
 # uv may print 'Missing expected target directory for Python minor version link': harmless on Windows.
 uv python install 3.12
 uv run --python 3.12 --no-project python --version
+if ($LASTEXITCODE -ne 0) {
+    # Seen on a fresh Windows 11 PC: exit code 0xc0e90002 = STATUS_SYSTEM_INTEGRITY_POLICY_VIOLATION.
+    Write-Host "  Python was installed but Windows refused to run it." -ForegroundColor Yellow
+    Write-Host "  If the error says 0xc0e90002, Smart App Control is blocking unsigned programs: see" -ForegroundColor Yellow
+    Write-Host "  docs\SETUP.md > Troubleshooting (turn it off, or work inside WSL2)." -ForegroundColor Yellow
+}
 
 Step "Local config"
 $EnvFile = "$Dir\.env"

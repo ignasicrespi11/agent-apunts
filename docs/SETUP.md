@@ -130,6 +130,7 @@ Everything goes to `data/` (gitignored: it is derived from copyrighted material)
 | `.env` saved as `.env.txt` (Notepad) | Rename it, or save with "All files (*.*)" as the type. Check with `dir /a` or `ls -a`. |
 | `failed to connect to the docker API ... dockerDesktopLinuxEngine` | Docker Desktop is not running: open it and wait until it says "Engine running". |
 | OneDrive (Omarchy) syncs nothing | After editing `sync_list`, run `onedrive --sync --resync`. |
+| uv: `Querying Python ... failed with exit status exit code: 0xc0e90002` (Windows 11) | **Smart App Control** blocks unsigned programs (uv's Python, and wheels like PyMuPDF/numpy). Either turn it off (Settings → Privacy & security → Windows Security → App & browser control → Smart App Control → Off; read Windows' warning: it may not be re-enabled without reinstalling) and run `uv python install 3.12 --reinstall`, or keep it on and work inside WSL2 (follow the Omarchy steps there). |
 
 ## After setup
 Start a Claude Code session in the repo folder, pick the model (Opus for new foundations, Sonnet otherwise) and run `/start-session`.
