@@ -18,7 +18,8 @@ powershell -ExecutionPolicy Bypass -File setup-windows.ps1
 
 Already cloned: `powershell -ExecutionPolicy Bypass -File scripts\setup-windows.ps1`
 
-- On the PC with the GTX 1080, add `-WithOllama`.
+- The script also installs **Ollama** and pulls `bge-m3` (embeddings, ~1.2 GB). On the PC with the GTX 1080
+  Ollama uses the GPU automatically; elsewhere the CPU is enough for embeddings.
 - Docker Desktop needs WSL2. If the script warns about it, in an **admin** PowerShell run
   `wsl --install --no-distribution`, reboot, open Docker Desktop once, then re-run the script.
 
@@ -85,9 +86,10 @@ Test-Path "C:\Users\<you>\OneDrive - UAB\_UNI\apunts_testing"
 test -d ~/OneDrive/_UNI/apunts_testing && echo True
 ```
 
-## 4. Python environment and Qdrant
+## 4. Python environment, Qdrant and Ollama
 
-The Python code runs natively (uv); only Qdrant (vector database) runs in Docker.
+The Python code runs natively (uv); Qdrant (vector database) runs in Docker; Ollama (embedding model,
+later the LLM) runs natively as a background service (installed by the setup script).
 
 ```bash
 uv sync                  # creates .venv/ with the exact versions from uv.lock
@@ -106,6 +108,9 @@ should print `all shards are ready`. Dashboard: http://localhost:6333/dashboard.
 Vectors live in the Docker volume `qdrant_storage` (survives restarts). `docker compose down -v` deletes them;
 they can always be rebuilt by re-ingesting.
 
+Check Ollama has the embedding model: `ollama list` must show `bge-m3`. If not: `ollama pull bge-m3`
+(Windows: open the Ollama app once first; Omarchy: `systemctl status ollama`).
+
 ## 5. First pipeline run (labelled set)
 
 ```bash
@@ -113,10 +118,20 @@ uv run agent-apunts register          # stage 1: content-hash IDs -> data/manife
 uv run agent-apunts extract           # stage 2: text, title, language, thumbnails -> data/processed/
 uv run agent-apunts inspect IS2425    # what was extracted from a document (part of its name or doc_id)
 uv run agent-apunts inspect IS2425 --page 3   # full text of one page: compare it with the PDF
+uv run agent-apunts chunk             # stages 3+4: remove boilerplate, split into chunks -> data/chunks/
+uv run agent-apunts inspect IS2425 --chunks   # chunks of a document + the boilerplate that was removed
+uv run agent-apunts index             # stage 5: embed with Ollama, store in Qdrant (needs both running)
+uv run agent-apunts search "què és el patró observer?"   # nearest chunks, any language
+uv run agent-apunts search "TLB" --subject arquitectura_computadors
 ```
 
-Both stages are incremental: re-running only processes new or changed files (`extract --force` redoes all).
+Or all stages at once: `uv run agent-apunts ingest`. Every stage is incremental: re-running only processes
+new or changed work (`--force` redoes all), and re-indexing never duplicates points.
 Everything goes to `data/` (gitignored: it is derived from copyrighted material).
+
+Optional, with Qdrant running: `QDRANT_TEST_URL=http://localhost:6333 uv run pytest tests/test_store_server.py`
+(Windows PowerShell: `$env:QDRANT_TEST_URL="http://localhost:6333"; uv run pytest tests/test_store_server.py`)
+tests the store against the real server in a throwaway collection.
 
 ## Troubleshooting
 
@@ -129,6 +144,9 @@ Everything goes to `data/` (gitignored: it is derived from copyrighted material)
 | A new tool is "not recognized" right after installing | Open a new terminal (PATH is only refreshed in new sessions). |
 | `.env` saved as `.env.txt` (Notepad) | Rename it, or save with "All files (*.*)" as the type. Check with `dir /a` or `ls -a`. |
 | `failed to connect to the docker API ... dockerDesktopLinuxEngine` | Docker Desktop is not running: open it and wait until it says "Engine running". |
+| `cannot reach Ollama` / `ollama pull bge-m3` in `index` or `search` | Start Ollama (Windows: the Ollama app; Omarchy: `sudo systemctl start ollama`) and pull the model. |
+| `cannot reach Qdrant` | `docker compose up -d` (Windows: Docker Desktop must be running). |
+| `collection 'apunts' was built with ...` | The embedding model changed: set a new `qdrant.collection` in `settings.yaml` and run `index`. |
 | OneDrive (Omarchy) syncs nothing | After editing `sync_list`, run `onedrive --sync --resync`. |
 | uv: `Querying Python ... failed with exit status exit code: 0xc0e90002` (Windows 11) | **Smart App Control** blocks unsigned programs (uv's Python, and wheels like PyMuPDF/numpy). Either turn it off (Settings → Privacy & security → Windows Security → App & browser control → Smart App Control → Off; read Windows' warning: it may not be re-enabled without reinstalling) and run `uv python install 3.12 --reinstall`, or keep it on and work inside WSL2 (follow the Omarchy steps there). |
 

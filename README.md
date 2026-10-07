@@ -20,7 +20,11 @@ Windows 11 and Omarchy (Arch Linux): see [docs/SETUP.md](docs/SETUP.md).
 uv run agent-apunts config     # resolved settings + documents per subject (checks .env)
 uv run agent-apunts register   # stage 1: content-hash document IDs in a SQLite manifest
 uv run agent-apunts extract    # stage 2: per-page text, title, language, thumbnail -> JSON
-uv run agent-apunts inspect <name or doc_id> [--page N]
+uv run agent-apunts inspect <name or doc_id> [--page N] [--chunks]
+uv run agent-apunts chunk      # stages 3+4: boilerplate removal + size-based chunking
+uv run agent-apunts index      # stage 5: bge-m3 embeddings (Ollama) -> Qdrant, idempotent
+uv run agent-apunts ingest     # all stages
+uv run agent-apunts search "question" [--subject X]   # filtered semantic search (no LLM yet)
 ```
 
 ## Architecture

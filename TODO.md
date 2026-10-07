@@ -1,6 +1,7 @@
 # TODO
 
-Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Week 2's code was built early (5 Oct). What's left is validating it on the real corpus.
+Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Weeks 2–3 code is built (5–7 Oct); extraction is validated on the
+real corpus (Omarchy + Windows). Next: run chunk/index/search on the real corpus, then week 4.
 
 ## Corpus findings (2026-09-29, labelled set)
 - 110 PDFs, 2,087 pages. No encrypted/broken files.
@@ -47,9 +48,11 @@ Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Week 2's code was built early 
 
 ## Phase 1 — First version (to 25 Oct)
 - [x] W2 (built 5 Oct): manifest (D22) + loader registry (D23) + PDF extractor (D24, language D25) → `data/processed/<user>/<doc_id>.json`; `register` / `extract` / `inspect` commands; 71 tests on synthetic PDFs
-- [ ] **Next (Ignasi, local machine with the PDFs):** `uv sync`, `uv run agent-apunts register`, `extract`, then `inspect` 3–5 documents (one slide deck per subject + one exam), comparing page text, title and language with the PDF. Note what's wrong in `docs/weekly/week-02.md` or a GitHub issue: wrong titles, wrong languages, empty pages, jumbled text order. Expect ~1–3 min for 2,087 pages
-- [ ] Fix extraction issues found on the real corpus (title heuristic, language thresholds in `settings.yaml`)
-- [ ] W3 (13–19 Oct): boilerplate cleaning + slide chunking with contextual header; embeddings (bge-m3), Qdrant collection + payload indexes (user_id as tenant, subject), idempotent ingest, filtered search; `ingest` / `search` CLI
+- [x] Real-corpus extraction check (Omarchy + Windows PC 2): register idempotent, 0 errors, titles checked on slides_grasp
+- [x] Fix extraction issues found on the real corpus (empty-pages crash; title heuristic v2 bullets, v3 top 30%)
+- [x] W3 (built 7 Oct, D26–D29): boilerplate cleaning + size-based chunking with contextual header; Embedder interface + Ollama bge-m3; Qdrant collection with model metadata + payload indexes (user_id tenant, subject…); idempotent index; filtered search; `chunk` / `index` / `ingest` / `search` CLI; 112 tests (+3 opt-in against a real Qdrant, verified on 1.19.1)
+- [ ] **Next (Ignasi, machine with PDFs):** `git pull`, re-run the setup script (installs Ollama + pulls bge-m3), `docker compose up -d`, then `uv run agent-apunts ingest`. Check: (1) `chunk` output's boilerplate list has no real sentences/formulas; (2) `inspect IS2526-ExamenFinal --chunks` splits the dense pages; (3) running `ingest` twice keeps the same point count; (4) 5 `search` questions in ca/es/en find the right slides (note results for week 4)
+- [ ] Tune cleaning/chunking thresholds from that check (settings.yaml; changing them re-chunks automatically)
 - [ ] W4 (20–25 Oct): LLMClient + Ollama implementation (Windows GPU), grounded `ask` with citations + abstention, 20 golden questions (ca/es/en), hit@k script; metadata auto-detection (D18) + accuracy vs manually organised subjects
 - 🛑 26–30 Oct: exams
 
@@ -93,3 +96,4 @@ Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Week 2's code was built early 
 - 2026-09-30: Dev environment: pyproject + uv.lock (Python 3.12, minimal deps), Qdrant via docker-compose, smoke tests. Devcontainer dropped (native uv).
 - 2026-10-05: (cloud session, Opus) New rule: sessions use the whole token budget, every why documented. Config + DocumentMetadata, `config` command, manifest + loader registry + PDF extraction + `inspect` (D20–D25), week-01 summary. 71 tests pass. Not yet run on real PDFs. Push was blocked (GitHub App access) at first.
 - 2026-10-06/07: First real-corpus runs (Omarchy, Windows PC 2): 2 extraction fixes (empty-pages crash, title heuristic v2/v3), setup scripts fixed (clone path, WSL check aborting on PS 5.1, TESTING_DIR auto-fill, Smart App Control diagnosis).
+- 2026-10-07: Week 3 built in the cloud session (D26–D29 approved in one batch): cleaning + chunking + Ollama embedder + Qdrant store/index/search. Tests caught 3 cleaning traps (exam-table numbers, numbered headings, page 0) and an `ingest` bug. Not yet run on real PDFs/Ollama.

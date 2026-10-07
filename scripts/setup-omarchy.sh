@@ -2,7 +2,8 @@
 # Setup agent-apunts on Omarchy (Arch Linux). Safe to re-run (idempotent).
 # Usage (from an existing clone):  bash scripts/setup-omarchy.sh
 # Usage (fresh machine): see docs/SETUP.md
-# Options: DIR=<path> (default: ~/code/agent-apunts)   WITH_OLLAMA=1 (only on a machine with a GPU)
+# Options: DIR=<path> (default: ~/code/agent-apunts)
+# Ollama is always installed: it computes the embeddings (bge-m3, CPU is fine) and later runs the LLM.
 set -euo pipefail
 
 REPO="ignasicrespi11/agent-apunts"
@@ -11,8 +12,7 @@ step() { printf '\n\033[36m==> %s\033[0m\n' "$1"; }
 warn() { printf '\033[33m  %s\033[0m\n' "$1"; }
 
 step "Installing packages with pacman"
-pkgs=(git github-cli uv docker docker-compose docker-buildx)
-[[ "${WITH_OLLAMA:-0}" == "1" ]] && pkgs+=(ollama)
+pkgs=(git github-cli uv docker docker-compose docker-buildx ollama)
 sudo pacman -S --needed --noconfirm "${pkgs[@]}"
 
 step "VS Code (Microsoft build: needed for the Dev Containers extension)"
@@ -30,6 +30,14 @@ if ! id -nG "$USER" | grep -qw docker; then
   sudo usermod -aG docker "$USER"
   warn "Added $USER to the 'docker' group: log out and back in (or reboot) before using docker without sudo."
 fi
+
+step "Ollama service + embedding model (D28)"
+sudo systemctl enable --now ollama.service
+# The server may need a moment after starting; retry the pull a few times.
+for attempt in 1 2 3 4 5; do
+  if ollama pull bge-m3; then break; fi
+  warn "ollama not ready yet (attempt $attempt), retrying..."; sleep 3
+done
 
 step "Git identity"
 git config --global user.name  >/dev/null || git config --global user.name  "$(read -rp '  Your full name for commits: ' v; echo "$v")"

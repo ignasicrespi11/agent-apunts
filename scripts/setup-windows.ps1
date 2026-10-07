@@ -2,7 +2,7 @@
 # Usage (from an existing clone):   powershell -ExecutionPolicy Bypass -File scripts\setup-windows.ps1
 # Usage (fresh machine): see docs/SETUP.md
 # Options: -Dir <path>   where to clone (default: $HOME\code\agent-apunts)
-#          -WithOllama   also install Ollama (only on the machine with the GPU)
+#          -WithOllama   (no longer needed: Ollama is always installed; kept so old commands work)
 param(
     [string]$Dir = "$HOME\code\agent-apunts",
     [switch]$WithOllama
@@ -33,8 +33,8 @@ function Winget-Install($id) {
 }
 
 Step "Installing tools with winget"
-$tools = @("Git.Git", "GitHub.cli", "astral-sh.uv", "Microsoft.VisualStudioCode", "Docker.DockerDesktop")
-if ($WithOllama) { $tools += "Ollama.Ollama" }
+# Ollama computes the embeddings (bge-m3) on every machine and later runs the local LLM (D28).
+$tools = @("Git.Git", "GitHub.cli", "astral-sh.uv", "Microsoft.VisualStudioCode", "Docker.DockerDesktop", "Ollama.Ollama")
 foreach ($t in $tools) { Winget-Install $t }
 Refresh-Path
 
@@ -89,6 +89,11 @@ if ($Corpus -and ($EnvLines -contains "TESTING_DIR=")) {
     Write-Host "  TESTING_DIR set to $Corpus"
 } elseif ($Corpus) { Write-Host "  TESTING_DIR already set in .env (left as is)" }
 else { Write-Host "  OneDrive folder _UNI\apunts_testing not found yet: sign in to OneDrive (UAB), then re-run" -ForegroundColor Yellow }
+
+Step "Embedding model (bge-m3 via Ollama)"
+Write-Host "  Downloading bge-m3 (~1.2 GB) if missing, this can take a few minutes..."
+if (Succeeds { ollama pull bge-m3 }) { Write-Host "  bge-m3 ready" }
+else { Write-Host "  Could not pull bge-m3: open the Ollama app once, then run 'ollama pull bge-m3'" -ForegroundColor Yellow }
 
 Step "Docker"
 if (Get-Command docker -ErrorAction SilentlyContinue) {
