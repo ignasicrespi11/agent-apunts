@@ -11,6 +11,7 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
+from agent_apunts import evaluation
 from agent_apunts.config import ConfigError, Settings, load_settings
 from agent_apunts.embeddings import EmbeddingError, make_embedder
 from agent_apunts.ingestion.chunk import chunk_all, chunks_path, read_chunks
@@ -411,3 +412,99 @@ def ask(
     console.print(table)
     if answer.model:
         console.print(f"[dim]{answer.model}, {answer.latency_ms / 1000:.1f} s[/dim]")
+
+
+@app.command("eval")
+def evaluate(
+    file: str = typer.Option("eval/golden.yaml", help="Golden set (see eval/README.md)."),
+    k: int = typer.Option(5, help="How many chunks to retrieve per question."),
+    filter_subject: bool = typer.Option(False, help="Also filter each query by its subject."),
+    sweep: bool = typer.Option(False, help="Try min_score thresholds to calibrate abstention."),
+    show_failures: bool = typer.Option(True, help="List questions whose answer was not found."),
+) -> None:
+    """Measure retrieval on the golden set: hit@k, MRR, per language/subject/tag (D34)."""
+    s = _settings()
+    path = Path(file) if Path(file).is_absolute() else s.paths.project_root / file
+    if not path.is_file():
+        console.print(
+            f"[red]{path} not found.[/red] Copy eval/golden.example.yaml and write yours."
+        )
+        raise typer.Exit(1)
+    try:
+        golden = evaluation.load_golden(path)
+    except ValueError as e:  # includes pydantic.ValidationError
+        console.print(f"[red]Invalid golden set:[/red] {e}")
+        raise typer.Exit(1) from e
+
+    with Manifest(s.paths.manifest) as manifest:
+        known = {r.rel_path for r in manifest.documents(s.user.id)}
+    unknown = sorted({e.document for q in golden.questions for e in q.expected} - known)
+    _list("expected documents not in the manifest (typo? not registered?)", unknown, "red")
+
+    try:
+        results = evaluation.run_questions(
+            golden, s.user.id, make_embedder(s), _store(s), k, filter_subject
+        )
+    except EmbeddingError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from e
+
+    ks = tuple(sorted({1, 3, k}))
+    overall = evaluation.metrics(results, ks)
+    groups = evaluation.breakdown(results, ks)
+    gate = evaluation.abstention(results, s.retrieval.min_score)
+
+    table = Table("group", "value", "questions", *[f"hit@{x}" for x in ks], "MRR")
+    table.add_row(
+        "all",
+        "",
+        str(overall.questions),
+        *[f"{overall.hit_at[x]:.0%}" for x in ks],
+        f"{overall.mrr:.3f}",
+    )
+    for name, by in groups.items():
+        for value, m in by.items():
+            if m.questions:
+                table.add_row(
+                    name,
+                    value,
+                    str(m.questions),
+                    *[f"{m.hit_at[x]:.0%}" for x in ks],
+                    f"{m.mrr:.3f}",
+                )
+    console.print(table)
+    console.print(
+        f"Abstention at min_score={gate.threshold}: correct on unanswerable "
+        f"{_pct(gate.correct_abstention)}, false on answerable {_pct(gate.false_abstention)}"
+    )
+    if sweep:
+        rows = evaluation.sweep(results)
+        sweep_table = Table("min_score", "correct abstention", "false abstention", "balanced")
+        for row in rows:
+            sweep_table.add_row(
+                f"{row.threshold:.2f}",
+                _pct(row.correct_abstention),
+                _pct(row.false_abstention),
+                _pct(row.balanced),
+            )
+        console.print(sweep_table)
+    if show_failures:
+        failures = [r for r in results if r.answerable and (r.rank is None or r.rank > k)]
+        _list(
+            f"answerable questions with no correct chunk in the top {k}",
+            [f"{r.id}: got {r.top[0] if r.top else 'nothing'}" for r in failures],
+        )
+    summary = {
+        "overall": overall.model_dump(),
+        "breakdown": {n: {v: m.model_dump() for v, m in by.items()} for n, by in groups.items()},
+        "abstention": gate.model_dump(),
+        "k": k,
+        "filter_subject": filter_subject,
+        "golden": str(path),
+    }
+    saved = evaluation.save_run(s, results, summary, s.paths.eval_dir)
+    console.print(f"[dim]Saved to {saved}[/dim]")
+
+
+def _pct(value: float | None) -> str:
+    return "-" if value is None else f"{value:.0%}"

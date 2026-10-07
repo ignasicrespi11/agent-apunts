@@ -150,3 +150,38 @@ def test_ask_answers_cites_and_logs(fake_services):
     assert "yes" in result.output  # source [1] marked as cited
     log = (fake_services / "logs" / "queries.jsonl").read_text(encoding="utf-8")
     assert '"user_id": "ignasi"' in log
+
+
+def test_eval_reports_and_saves_a_run(fake_services):
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide", "a4"])
+    assert runner.invoke(app, ["ingest"]).exit_code == 0
+    golden = fake_services / "eval" / "golden.yaml"
+    golden.parent.mkdir()
+    golden.write_text(
+        "questions:\n"
+        "  - id: observer\n"
+        "    question: patró observador canvis estat\n"
+        "    language: ca\n"
+        "    subject: disseny_software\n"
+        "    expected: [{document: disseny_software/theory/patrons.pdf, pages: [1]}]\n"
+        "  - id: typo\n"
+        "    question: x\n"
+        "    language: en\n"
+        "    expected: [{document: disseny_software/theory/missing.pdf}]\n"
+        "  - {id: none, question: mundial de futbol, language: ca, answerable: false}\n",
+        encoding="utf-8",
+    )
+    result = runner.invoke(app, ["eval", "--sweep"])
+    assert result.exit_code == 0, result.output
+    assert "hit@1" in result.output and "MRR" in result.output
+    assert "missing.pdf" in result.output  # unknown expected document is reported
+    assert "min_score" in result.output
+    assert list((fake_services / "data" / "eval").glob("retrieval-*.json"))
+
+
+def test_eval_without_golden_file(fake_services):
+    result = runner.invoke(app, ["eval"])
+    assert result.exit_code == 1 and "golden.example.yaml" in result.output
