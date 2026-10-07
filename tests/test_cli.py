@@ -87,3 +87,44 @@ def test_register_unknown_source(in_project):
     result = runner.invoke(app, ["register", "--source", "nope"])
     assert result.exit_code == 1
     assert "unknown source" in result.output
+
+
+@pytest.fixture
+def fake_services(monkeypatch, in_project):
+    """Ollama -> HashEmbedder, Qdrant -> one in-memory store shared by every command call."""
+    from qdrant_client import QdrantClient
+
+    from agent_apunts import cli
+    from agent_apunts.store import VectorStore
+    from tests.fakes import HashEmbedder
+
+    embedder = HashEmbedder()
+    store = VectorStore(QdrantClient(":memory:"), "apunts", embedder.model, embedder.dimension)
+    monkeypatch.setattr(cli, "make_embedder", lambda settings: embedder)
+    monkeypatch.setattr(cli.VectorStore, "from_settings", classmethod(lambda cls, s: store))
+    return in_project
+
+
+def test_ingest_then_search(fake_services):
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide", "a4"])
+
+    result = runner.invoke(app, ["ingest"])
+    assert result.exit_code == 0, result.output
+    assert "1 indexed (2 points)" in result.output
+
+    again = runner.invoke(app, ["ingest"])
+    assert again.exit_code == 0, again.output
+    assert "0 indexed (0 points), 1 up to date" in again.output
+    assert "holds 2 points" in again.output  # idempotent: still 2 (D29)
+
+    result = runner.invoke(app, ["search", "patró observador", "--subject", "disseny_software"])
+    assert result.exit_code == 0, result.output
+    assert "disseny_software" in result.output and "score" in result.output
+
+
+def test_search_unknown_subject(fake_services):
+    result = runner.invoke(app, ["search", "x", "--subject", "nope"])
+    assert result.exit_code == 1 and "Unknown subject" in result.output

@@ -12,13 +12,17 @@ from rich.console import Console
 from rich.table import Table
 
 from agent_apunts.config import ConfigError, Settings, load_settings
+from agent_apunts.embeddings import make_embedder
 from agent_apunts.ingestion.chunk import chunk_all, chunks_path, read_chunks
 from agent_apunts.ingestion.discovery import find_files
 from agent_apunts.ingestion.extract import extract_all, processed_path, read_json
+from agent_apunts.ingestion.index import index_all
 from agent_apunts.ingestion.loaders import supported_extensions
 from agent_apunts.ingestion.manifest import Manifest
 from agent_apunts.ingestion.register import register_source
 from agent_apunts.metadata import metadata_from_path
+from agent_apunts.retrieval import search as retrieve
+from agent_apunts.store import StoreError, VectorStore
 
 app = typer.Typer(help="RAG agent over university notes.", no_args_is_help=True)
 console = Console()
@@ -244,5 +248,83 @@ def _print_chunks(s: Settings, doc_id: str, page: int | None) -> None:
     for c in selected:
         table.add_row(
             str(c.index), str(c.page), str(c.part), str(c.word_count), c.language or "-", c.header
+        )
+    console.print(table)
+
+
+def _store(s: Settings) -> VectorStore:
+    store = VectorStore.from_settings(s)
+    try:
+        store.ensure_collection()
+    except StoreError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from e
+    return store
+
+
+@app.command()
+def index(
+    force: bool = typer.Option(False, help="Re-embed even documents that are up to date."),
+) -> None:
+    """Stage 5: embed chunks (Ollama) and store them in Qdrant. Safe to re-run."""
+    s = _settings()
+    store = _store(s)
+    with Manifest(s.paths.manifest) as manifest:
+        r = index_all(manifest, s.user.id, s, make_embedder(s), store, force=force)
+    console.print(
+        f"{len(r.indexed)} indexed ({r.points} points), {len(r.up_to_date)} up to date, "
+        f"{len(r.not_chunked)} not chunked yet, {len(r.errors)} errors. "
+        f"Collection now holds {store.count(s.user.id)} points for {s.user.id}."
+    )
+    if r.stopped:
+        console.print(f"[red]Stopped: {r.stopped}[/red]")
+    _list("not chunked yet (run `chunk`)", r.not_chunked)
+    _list("errors", r.errors, "red")
+    if r.stopped:
+        raise typer.Exit(1)
+
+
+@app.command()
+def ingest(force: bool = typer.Option(False, help="Redo every stage for every document.")) -> None:
+    """All stages in order: register -> extract -> chunk -> index. Only new work is done."""
+    # Called as plain functions, Typer commands get no defaults filled in: pass every argument.
+    console.rule("register")
+    register(source="all")
+    console.rule("extract")
+    extract(force=force)
+    console.rule("chunk")
+    chunk(force=force)
+    console.rule("index")
+    index(force=force)
+
+
+@app.command()
+def search(
+    question: str = typer.Argument(help="What to look for, in any language."),
+    subject: str | None = typer.Option(None, help="Only this subject (folder name)."),
+    doc_type: str | None = typer.Option(None, help="Only this doc_type (theory, exams...)."),
+    limit: int = typer.Option(5, help="How many chunks to return."),
+) -> None:
+    """Show the chunks most similar to a question (retrieval only, no LLM yet)."""
+    s = _settings()
+    if subject is not None and subject not in s.subjects:
+        console.print(f"[red]Unknown subject {subject!r}[/red] (known: {', '.join(s.subjects)})")
+        raise typer.Exit(1)
+    hits = retrieve(
+        question, s.user.id, make_embedder(s), _store(s), limit, subject=subject, doc_type=doc_type
+    )
+    if not hits:
+        console.print("No chunks found. Has anything been indexed? (`agent-apunts index`)")
+        return
+    table = Table("score", "subject", "document", "page", "text")
+    for h in hits:
+        p = h.payload
+        snippet = " ".join(p.get("text", "").split())[:120]
+        table.add_row(
+            f"{h.score:.3f}",
+            p.get("subject") or "-",
+            p.get("rel_path", "?"),
+            str(p.get("page")),
+            snippet,
         )
     console.print(table)
