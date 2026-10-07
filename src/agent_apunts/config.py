@@ -69,6 +69,7 @@ class ExtractionSettings(_Strict):
     thumbnail_width: int = Field(gt=0)
     language_min_chars: int = Field(ge=0)
     language_min_confidence: float = Field(ge=0, le=1)
+    large_image_min_coverage: float = Field(ge=0, le=1)
 
 
 class CleaningSettings(_Strict):

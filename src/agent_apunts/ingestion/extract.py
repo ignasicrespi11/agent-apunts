@@ -30,6 +30,7 @@ class ExtractedPage(BaseModel):
     char_count: int
     language: str | None  # None: too little text or unsure (D16)
     image_count: int
+    image_coverage: float = 0.0  # 0-1; default keeps JSON from older extractor versions readable
     mostly_image: bool  # little text: the content is in images/diagrams (D14)
     thumbnail: str | None  # relative to data_dir, '/'-separated
 
@@ -80,6 +81,7 @@ def extract_document(record: DocumentRecord, settings: Settings) -> ExtractedDoc
                     ex.language_min_confidence,
                 ),
                 image_count=raw.image_count,
+                image_coverage=raw.image_coverage,
                 mostly_image=chars < ex.image_page_max_chars,
                 thumbnail=(
                     raw.thumbnail.relative_to(settings.paths.data_dir).as_posix()

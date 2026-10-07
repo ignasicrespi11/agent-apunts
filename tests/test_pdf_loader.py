@@ -111,3 +111,23 @@ def test_title_position_uses_the_visible_page(tmp_path):
 
     assert _one_page(tmp_path, draw).title == "Expert"
     assert _one_page(tmp_path, draw, rotation=180).title is None
+
+
+def test_image_coverage(pages):
+    slide, a4, image = pages
+    # make_pdf: a small 180x136 image on the slide, a 660x495 one on the image page (842x595).
+    assert slide.image_coverage == pytest.approx(180 * 136 / (842 * 595), abs=0.02)
+    assert a4.image_coverage == 0.0
+    assert image.image_coverage == pytest.approx(660 * 495 / (842 * 595), abs=0.03)
+
+
+def test_overlapping_images_are_not_counted_twice(tmp_path):
+    doc = pymupdf.open()
+    page = doc.new_page(width=800, height=600)
+    pix = pymupdf.Pixmap(pymupdf.csRGB, pymupdf.IRect(0, 0, 40, 30), False)
+    for _ in range(3):  # the same full-page image three times
+        page.insert_image(page.rect, pixmap=pix, keep_proportion=False)
+    path = tmp_path / "overlap.pdf"
+    doc.save(path)
+    (raw,) = PdfLoader().load(path, tmp_path / "t", 100)
+    assert raw.image_coverage == 1.0

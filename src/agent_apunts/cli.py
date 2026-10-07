@@ -16,6 +16,7 @@ from agent_apunts.embeddings import make_embedder
 from agent_apunts.ingestion.chunk import chunk_all, chunks_path, read_chunks
 from agent_apunts.ingestion.discovery import find_files
 from agent_apunts.ingestion.extract import extract_all, processed_path, read_json
+from agent_apunts.ingestion.image_report import image_report
 from agent_apunts.ingestion.index import index_all
 from agent_apunts.ingestion.loaders import supported_extensions
 from agent_apunts.ingestion.manifest import Manifest
@@ -328,3 +329,37 @@ def search(
             snippet,
         )
     console.print(table)
+
+
+@app.command()
+def images(top: int = typer.Option(15, help="How many documents to list.")) -> None:
+    """How much content hides in images (code screenshots, diagrams)? Measures before OCR (D30)."""
+    s = _settings()
+    with Manifest(s.paths.manifest) as manifest:
+        r = image_report(manifest, s.user.id, s)
+    share = s.extraction.large_image_min_coverage
+    table = Table(
+        "subject", "pages", "image only", f"text + image >= {share:.0%}", "% not fully read"
+    )
+    for subject, st in sorted(r.by_subject.items()):
+        missing = (st.image_only + st.text_and_large_image) / st.pages if st.pages else 0
+        table.add_row(
+            subject,
+            str(st.pages),
+            str(st.image_only),
+            str(st.text_and_large_image),
+            f"{missing:.0%}",
+        )
+    console.print(table)
+    ranked = sorted(r.documents.items(), key=lambda kv: -len(kv[1]))[:top]
+    _list(
+        "documents with most text + large-image pages (open them: code? diagrams? decoration?)",
+        [
+            f"{len(pages):>3}  {path}  pages {', '.join(map(str, pages[:12]))}"
+            for path, pages in ranked
+        ],
+        "cyan",
+        limit=top,
+    )
+    if r.not_extracted:
+        console.print(f"{r.not_extracted} documents not extracted yet (run `extract`).")

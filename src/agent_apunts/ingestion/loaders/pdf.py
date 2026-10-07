@@ -71,10 +71,36 @@ def guess_title(page: pymupdf.Page) -> str | None:
     return title[:_MAX_TITLE_CHARS] or None
 
 
+_GRID = 40  # 40 x 40 sample points per page: precise enough for a coverage percentage
+
+
+def image_coverage(page: pymupdf.Page) -> float:
+    """Fraction of the page (0-1) covered by embedded images (D30).
+
+    Sampled on a grid so overlapping images are not counted twice. Answers the question text
+    extraction can't: is there content we are not reading (a code screenshot, a diagram)?
+    Vector drawings (shapes drawn by PowerPoint) are not images and are not counted.
+    """
+    boxes = [pymupdf.Rect(info["bbox"]) for info in page.get_image_info()]
+    if not boxes:
+        return 0.0
+    box = page.cropbox  # image boxes use the unrotated page's coordinates
+    width, height = box.width, box.height
+    covered = 0
+    for i in range(_GRID):
+        for j in range(_GRID):
+            point = pymupdf.Point(
+                box.x0 + (i + 0.5) * width / _GRID, box.y0 + (j + 0.5) * height / _GRID
+            )
+            covered += any(point in r for r in boxes)
+    return round(covered / _GRID**2, 3)
+
+
 class PdfLoader:
     name = "pymupdf"
     # 2: symbol-only text is never a title. 3: titles only in the top 30% of the page.
-    version = 3
+    # 4: image_coverage per page (D30).
+    version = 4
     extensions = (".pdf",)
 
     def load(self, path: Path, thumbnails_dir: Path, thumbnail_width: int) -> list[RawPage]:
@@ -99,6 +125,7 @@ class PdfLoader:
                         text=normalize_text(page.get_text("text", sort=True)),
                         title=guess_title(page),
                         image_count=len(page.get_images()),
+                        image_coverage=image_coverage(page),
                         thumbnail=thumbnail,
                     )
                 )
