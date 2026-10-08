@@ -16,14 +16,25 @@ _MAX_TITLE_CHARS = 200
 _TITLE_TOP_FRACTION = 0.3
 
 
+# Spacing accent marks (as LaTeX writes them into PDFs) -> the combining mark NFC can merge.
+_COMBINING = {"\u00b4": "\u0301", "\u00a8": "\u0308", "\u02c6": "\u0302", "\u02dc": "\u0303"}
+_SPACING_ACCENT = re.compile(r"([\u00b4\u00a8\u02c6\u02dc])([A-Za-z])")
+
+
 def normalize_text(text: str) -> str:
     """Make extracted text consistent without changing its content.
 
     - NFC: some PDFs store "à" as "a" + combining accent; NFC turns it into the single character
       users type, so search and embeddings see the same string.
+    - LaTeX-made PDFs often store the accent as a separate *spacing* character before the letter
+      ("Soluci´o", "Pr`actica"): it is turned into the real letter ("Solució", "Pràctica"),
+      otherwise "solució" never matches. Found on the real corpus (IS exams).
     - Strip trailing spaces per line and collapse 3+ newlines into one blank line.
     Removing boilerplate (logos, repeated footers) is NOT done here: that's the CLEAN stage (D11).
     """
+    text = _SPACING_ACCENT.sub(lambda m: m.group(2) + _COMBINING[m.group(1)], text)
+    # Grave accent: only between letters ("Pr`actica"), so code backticks are left alone.
+    text = re.sub(r"(?<=[A-Za-z])`([aeiouAEIOU])", lambda m: m.group(1) + "\u0300", text)
     text = unicodedata.normalize("NFC", text)
     text = "\n".join(line.rstrip() for line in text.splitlines())
     return re.sub(r"\n{3,}", "\n\n", text).strip()
@@ -103,7 +114,7 @@ class PdfLoader:
     name = "pymupdf"
     # 2: symbol-only text is never a title. 3: titles only in the top 30% of the page.
     # 4: image_coverage per page (D30). 5: coverage correct on PDFs with an offset CropBox.
-    version = 5
+    version = 6  # 6: LaTeX spacing accents fixed ("Soluci´o" -> "Solució")
     extensions = (".pdf",)
 
     def load(self, path: Path, thumbnails_dir: Path, thumbnail_width: int) -> list[RawPage]:

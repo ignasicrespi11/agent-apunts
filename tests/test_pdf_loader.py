@@ -144,3 +144,12 @@ def test_image_coverage_with_offset_cropbox(tmp_path):
     doc.save(path)
     (raw,) = PdfLoader().load(path, tmp_path / "t", 100)
     assert raw.image_coverage == 1.0
+
+
+def test_latex_spacing_accents_are_fixed():
+    # Real corpus (IS exams): "Soluci´o:" instead of "Solució:".
+    assert (
+        normalize_text("Soluci´o: Pr`actica, ping¨uino, ´Area")
+        == "Solució: Pràctica, pingüino, Área"
+    )
+    assert normalize_text("use `a` and x = `b`") == "use `a` and x = `b`"  # code backticks kept

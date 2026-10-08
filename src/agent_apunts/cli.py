@@ -344,16 +344,20 @@ def search(
         console.print(f"[red]Unknown subject {subject!r}[/red] (known: {', '.join(s.subjects)})")
         raise typer.Exit(1)
     use_hybrid = s.retrieval.hybrid if hybrid is None else hybrid
-    hits = retrieve(
-        question,
-        s.user.id,
-        make_embedder(s),
-        _store(s),
-        limit,
-        subject=subject,
-        doc_type=doc_type,
-        hybrid=use_hybrid,
-    )
+    try:
+        hits = retrieve(
+            question,
+            s.user.id,
+            make_embedder(s),
+            _store(s),
+            limit,
+            subject=subject,
+            doc_type=doc_type,
+            hybrid=use_hybrid,
+        )
+    except EmbeddingError as e:  # found on the real run: a traceback instead of the fix
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from e
     if not hits:
         console.print("No chunks found. Has anything been indexed? (`agent-apunts index`)")
         return

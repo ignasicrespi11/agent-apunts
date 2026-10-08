@@ -21,6 +21,11 @@ write the golden set.
   blank/separator pages in the problem books → no scanned content found, OCR stays in the parking lot.
   Title heuristic: bullets taken as title (fixed, loader v2); big callouts low on the slide taken as titles (fixed, v3:
   top 30% only). Windows run (2026-10-07) gives identical doc_ids, page counts and empty pages as Omarchy.
+- First chunk/images run (2026-10-08, Omarchy): 2,366 chunks. `images`: content not fully read (image-only or text +
+  image >= 25%) = disseny_software 31% (usability, ux, structural, behavioural...), arquitectura 17%, IS 3% → OCR/vision
+  (D30) matters mostly for Disseny. Boilerplate audit OK (page numbers, exam name/NIU form, course headers); but
+  removed running headers like "P5: Jerarquía de Memoria" carry the document's topic → idea: reuse the most
+  frequent removed descriptive line in the chunk header (to decide). LaTeX accents "Soluci´o" fixed (loader v6).
 
 ## Now — Week 1: foundations
 - [x] Architecture proposal (Opus) → `docs/ARCHITECTURE.md`
