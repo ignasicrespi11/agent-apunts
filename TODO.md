@@ -1,7 +1,15 @@
 # TODO
 
-Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Weeks 2–3 code is built (5–7 Oct); extraction is validated on the
-real corpus (Omarchy + Windows). Next: run chunk/index/search on the real corpus, then week 4.
+Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Weeks 2–4 code is built (PR #3 open, proposed D30–D37). On Omarchy
+(2026-10-08): `doctor` all green except the LLM (not needed there), 108 docs registered/extracted/chunked, **0 indexed**.
+
+**Next session (start here, on Omarchy, branch `claude/serene-brahmagupta-md8g0y`):**
+1. `git pull && time uv run agent-apunts ingest` → real bge-m3 embeddings on CPU (10–30 min; re-extracts first: loader v6).
+2. `uv run agent-apunts detect --evaluate` and `uv run agent-apunts duplicates` → note the numbers below.
+3. `uv run agent-apunts search "què és el patró Creator?"` and `search "TLB" --hybrid` → check the right slides come first.
+4. Review PR #3 (read `docs/CODE_TOUR.md` first), accept/change D30–D37, merge.
+5. Write `eval/golden.yaml` (20 questions, see `eval/README.md`), then `eval --sweep` and `eval --hybrid`.
+6. On the GTX 1080 PC: `ollama pull qwen2.5:7b`, try `ask`, then `eval --answers`.
 
 ## Corpus findings (2026-09-29, labelled set)
 - 110 PDFs, 2,087 pages. No encrypted/broken files.
@@ -20,6 +28,11 @@ real corpus (Omarchy + Windows). Next: run chunk/index/search on the real corpus
   blank/separator pages in the problem books → no scanned content found, OCR stays in the parking lot.
   Title heuristic: bullets taken as title (fixed, loader v2); big callouts low on the slide taken as titles (fixed, v3:
   top 30% only). Windows run (2026-10-07) gives identical doc_ids, page counts and empty pages as Omarchy.
+- First chunk/images run (2026-10-08, Omarchy): 2,366 chunks. `images`: content not fully read (image-only or text +
+  image >= 25%) = disseny_software 31% (usability, ux, structural, behavioural...), arquitectura 17%, IS 3% → OCR/vision
+  (D30) matters mostly for Disseny. Boilerplate audit OK (page numbers, exam name/NIU form, course headers); but
+  removed running headers like "P5: Jerarquía de Memoria" carry the document's topic → idea: reuse the most
+  frequent removed descriptive line in the chunk header (to decide). LaTeX accents "Soluci´o" fixed (loader v6).
 
 ## Now — Week 1: foundations
 - [x] Architecture proposal (Opus) → `docs/ARCHITECTURE.md`
@@ -43,7 +56,7 @@ real corpus (Omarchy + Windows). Next: run chunk/index/search on the real corpus
 - [ ] (Ignasi) On each machine (Omarchy ✓ 2026-10-06, Windows PC 2 ✓ 2026-10-07): `uv run agent-apunts config` must show 108 documents (110 analysed minus 2 exact duplicates removed) and no "problem" lines
 - [ ] (Ignasi) Check subject names in `config/sources.yaml` (written by Claude from the folder names)
 - [ ] (Ignasi) Once `TESTING_DIR` works, delete the duplicate local copy in `testing/apunts_testing/` (keep OneDrive as the single source)
-- [ ] Learn: reading Python (modules, imports, type hints, dataclasses/Pydantic, pytest)
+- [ ] Learn: reading Python (modules, imports, type hints, dataclasses/Pydantic, pytest) → start with `docs/CODE_TOUR.md`
 - [x] Sunday: `docs/weekly/week-01.md`
 
 ## Phase 1 — First version (to 25 Oct)
@@ -53,7 +66,17 @@ real corpus (Omarchy + Windows). Next: run chunk/index/search on the real corpus
 - [x] W3 (built 7 Oct, D26–D29): boilerplate cleaning + size-based chunking with contextual header; Embedder interface + Ollama bge-m3; Qdrant collection with model metadata + payload indexes (user_id tenant, subject…); idempotent index; filtered search; `chunk` / `index` / `ingest` / `search` CLI; 112 tests (+3 opt-in against a real Qdrant, verified on 1.19.1)
 - [ ] **Next (Ignasi, machine with PDFs):** `git pull`, re-run the setup script (installs Ollama + pulls bge-m3), `docker compose up -d`, then `uv run agent-apunts ingest`. Check: (1) `chunk` output's boilerplate list has no real sentences/formulas; (2) `inspect IS2526-ExamenFinal --chunks` splits the dense pages; (3) running `ingest` twice keeps the same point count; (4) 5 `search` questions in ca/es/en find the right slides (note results for week 4)
 - [ ] Tune cleaning/chunking thresholds from that check (settings.yaml; changing them re-chunks automatically)
-- [ ] W4 (20–25 Oct): LLMClient + Ollama implementation (Windows GPU), grounded `ask` with citations + abstention, 20 golden questions (ca/es/en), hit@k script; metadata auto-detection (D18) + accuracy vs manually organised subjects
+- [x] W4 code (built 8 Oct overnight, PR #3, *proposed* D30–D36): `images` report (hidden image content); LLMClient + Ollama; `ask` with [n] citations, two abstention gates, query log; eval harness (hit@k, MRR, abstention sweep, `--answers` end to end); prune of deleted/replaced PDFs; payload-only updates on moves; `detect` (D36, D18 without LLM) + `--evaluate`; `duplicates` report (D19 step 1); `doctor`; hybrid search dense + BM25 (D37, schema 2, off by default); `docs/CODE_TOUR.md`; two automated review rounds, all findings fixed. 203 tests
+- [ ] **(Ignasi)** Review PR #3; accept or change the proposed decisions D30–D35 in `docs/ARCHITECTURE.md`
+- [ ] **(Ignasi)** Write `eval/golden.yaml`: 20 questions (ca/es/en, 3–4 unanswerable, some tagged `code-image`), see `eval/README.md`
+- [ ] Run `eval --sweep` on the real corpus → set `retrieval.min_score`; first numbers for the weekly summary
+- [ ] Run `eval` and `eval --hybrid` → turn `retrieval.hybrid` on if it wins (D37)
+- [ ] `ollama pull qwen2.5:7b` on the GTX 1080 PC; try `ask` on 10 questions, note wrong/uncited answers
+- [ ] Run `images` on the real corpus → decide whether an OCR stage (D30 step 3) is worth building
+- [ ] Sunday: finish `docs/weekly/week-02.md` (draft exists; fill the TODO numbers from eval/detect/images)
+- [ ] Run `detect --evaluate` on the real corpus → subject accuracy (CV number), tune `detection.min_margin`
+- [ ] Run `duplicates` → decide D19 threshold and how search collapses groups
+- [ ] (Ignasi) Read `docs/CODE_TOUR.md` before reviewing PR #3
 - 🛑 26–30 Oct: exams
 
 ## Phase 2 — Agent, interface, retrieval (2 Nov – 22 Dec)
@@ -62,7 +85,7 @@ real corpus (Omarchy + Windows). Next: run chunk/index/search on the real corpus
 - [ ] Vision enrichment for image-heavy slides (D14), measured
 - [ ] Near-duplicate grouping + collapse results by `group_id` (D19)
 - [ ] Hybrid search (dense + sparse) and reranking; measure the delta
-- [ ] Agent design session (Opus): tools `search_notes`, `list_subjects`, `get_document`
+- [ ] Agent design session (Opus): discuss the proposal in `docs/design/phase-2-agent.md` (tools, loop limits, eval plan, API/UI order)
 - [ ] Agent implementation + tests
 - [ ] FastAPI + Streamlit UI, including upload feeding the same pipeline; show cited slide thumbnails
 - [ ] Folder watcher on `apunts/` (auto-ingest new PDFs); confirm-metadata step for low-confidence detections
@@ -97,3 +120,5 @@ real corpus (Omarchy + Windows). Next: run chunk/index/search on the real corpus
 - 2026-10-05: (cloud session, Opus) New rule: sessions use the whole token budget, every why documented. Config + DocumentMetadata, `config` command, manifest + loader registry + PDF extraction + `inspect` (D20–D25), week-01 summary. 71 tests pass. Not yet run on real PDFs. Push was blocked (GitHub App access) at first.
 - 2026-10-06/07: First real-corpus runs (Omarchy, Windows PC 2): 2 extraction fixes (empty-pages crash, title heuristic v2/v3), setup scripts fixed (clone path, WSL check aborting on PS 5.1, TESTING_DIR auto-fill, Smart App Control diagnosis).
 - 2026-10-07: Week 3 built in the cloud session (D26–D29 approved in one batch): cleaning + chunking + Ollama embedder + Qdrant store/index/search. Tests caught 3 cleaning traps (exam-table numbers, numbered headings, page 0) and an `ingest` bug. Not yet run on real PDFs/Ollama.
+- 2026-10-08: (autonomous overnight, Opus) PR #2 merged after evaluation. PR #3: D30 image measurement, faster re-index, week-4 ask/LLM/log + eval harness (proposed D31–D34), prune (D35). Self-review + automated review found 14 issues, all fixed (incl. prune wiping an unmounted OneDrive source, moved files keeping stale metadata). Nothing run on real PDFs/Ollama yet. Later in the night: detect (D36), duplicates, doctor, eval --answers, hybrid search (D37), code tour; second review round (prune on unknown content, citation parsing, 404 Not Found) fixed.
+- 2026-10-08: (Omarchy, real data) chunk + images on the real corpus (2,366 chunks; Disseny 31% content in images); fixed LaTeX accents (loader v6) and a search traceback; Ollama + bge-m3 installed, doctor green. Index/detect/search moved to the next session (context full).

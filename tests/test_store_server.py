@@ -68,7 +68,7 @@ def test_collection_has_metadata_and_tenant_index(store):
     vs, _, client = store
     vs.ensure_collection()
     info = client.get_collection(vs.collection)
-    assert info.config.metadata == {"embedding_model": "fake-hash", "dimension": 64}
+    assert info.config.metadata == {"embedding_model": "fake-hash", "dimension": 64, "schema": 2}
     assert {"user_id", "subject", "doc_type", "doc_id", "language"} <= set(info.payload_schema)
     vs.ensure_collection()  # second call: exists, same model -> fine
 
@@ -97,3 +97,43 @@ def test_other_model_refused_on_server(store):
     vs.ensure_collection()
     with pytest.raises(StoreError, match="was built with fake-hash"):
         VectorStore(client, vs.collection, "bge-m3", 64).ensure_collection()
+
+
+def test_update_document_payload_on_server(store):
+    from agent_apunts.metadata import DocumentMetadata
+
+    vs, embedder, _ = store
+    vs.ensure_collection()
+    doc = _doc("ignasi", "d1", ["cache memory hierarchy", "pipeline hazards"])
+    vs.replace_document(doc, embedder.embed([c.text for c in doc.chunks]))
+    moved = doc.model_copy(
+        update={
+            "rel_path": "d1-moved.pdf",
+            "metadata": DocumentMetadata(
+                university="UAB",
+                degree="CE",
+                subject="disseny_software",
+                doc_type="labs",
+                taken_in="2025-26",
+            ),
+        }
+    )
+    vs.update_document_payload(moved)
+    (vector,) = embedder.embed(["cache memory"])
+    hits = vs.search("ignasi", vector, limit=5, doc_type="labs")
+    assert len(hits) == 2 and {h.payload["rel_path"] for h in hits} == {"d1-moved.pdf"}
+    assert hits[0].payload["text"]  # chunk-level fields untouched
+
+
+def test_hybrid_search_on_server(store):
+    vs, embedder, _ = store
+    vs.ensure_collection()
+    a = _doc("ignasi", "d1", ["cache memory hierarchy", "the TLB caches translations", "pipeline"])
+    b = _doc("anna", "d2", ["TLB TLB TLB"])
+    for doc in (a, b):
+        vs.replace_document(doc, embedder.embed([c.text for c in doc.chunks]))
+    (vector,) = embedder.embed(["what is a TLB"])
+    hits = vs.search("ignasi", vector, limit=3, query_text="what is a TLB")
+    assert hits[0].payload["text"] == "the TLB caches translations"
+    assert {h.payload["user_id"] for h in hits} == {"ignasi"}
+    assert all(-1.0 <= h.score <= 1.0 for h in hits)  # cosine, not fusion scores

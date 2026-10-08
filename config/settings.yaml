@@ -25,6 +25,9 @@ extraction:
   # and so do pages where the detector is less sure than this (0-1).
   language_min_chars: 20
   language_min_confidence: 0.8
+  # `images` report (D30): a page with text whose images cover at least this share of it probably
+  # holds content we don't read (code screenshots, diagrams).
+  large_image_min_coverage: 0.25
 
 # Stage 3, CLEAN (D27): a line is boilerplate (logo text, footer, course name) when it appears on at
 # least this share of a document's pages, on at least this many pages, and is short. Digits are
@@ -53,7 +56,31 @@ embedding:
 qdrant:
   collection: apunts
 
-# Provisional: the local model is chosen in week 4 by running the eval (D4, D8).
+# Retrieval for `ask` (D32). min_score is provisional: calibrate it with `agent-apunts eval --sweep`.
+# If the best chunk scores below it, `ask` abstains without calling the LLM.
+retrieval:
+  top_k: 5
+  min_score: 0.45
+  # Hybrid search (D37, proposed): fuse dense (meaning) and keyword (BM25) results. Indexing always
+  # stores both, so `eval --hybrid` vs `eval` compares them without re-indexing.
+  hybrid: false
+
+# Local LLM via Ollama (D4, D31): `ollama pull qwen2.5:7b`. Provisional model, chosen with the eval.
+# temperature 0: repeatable answers (eval). num_ctx: tokens the model sees (5 sources + rules fit).
 llm:
   provider: ollama
   model: qwen2.5:7b
+  temperature: 0
+  num_ctx: 8192
+
+# Metadata auto-detection (D36, proposed). A document is assigned to the subject whose centroid
+# (mean vector of its labelled documents) is closest; the guess counts as confident only if it
+# beats the second-best subject by at least min_margin (cosine). Calibrate with `detect --evaluate`.
+# Vectors come from up to sample_chunks chunks of plain text (no header: the header contains the
+# subject's name, which unorganised PDFs don't have; using it would fake a perfect accuracy).
+detection:
+  min_margin: 0.05
+  sample_chunks: 6
+
+# Query log (D33): one JSON line per question, with user_id. Gitignored: it contains your questions.
+logs_dir: logs

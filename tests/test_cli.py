@@ -5,7 +5,8 @@ from typer.testing import CliRunner
 
 from agent_apunts.cli import app
 
-runner = CliRunner()
+# Wide terminal: rich tables would otherwise wrap paths and texts mid-word in assertions.
+runner = CliRunner(env={"COLUMNS": "200"})
 
 
 @pytest.fixture
@@ -64,6 +65,10 @@ def test_register_extract_inspect(in_project):
     assert result.exit_code == 0, result.output
     assert "memoria caché" in result.output
 
+    result = runner.invoke(app, ["images"])
+    assert result.exit_code == 0, result.output
+    assert "disseny_software" in result.output
+
     result = runner.invoke(app, ["chunk"])
     assert result.exit_code == 0, result.output
     assert "1 chunked (2 chunks)" in result.output  # slide + A4 page; the image page gives none
@@ -96,11 +101,12 @@ def fake_services(monkeypatch, in_project):
 
     from agent_apunts import cli
     from agent_apunts.store import VectorStore
-    from tests.fakes import HashEmbedder
+    from tests.fakes import HashEmbedder, ScriptedLLM
 
     embedder = HashEmbedder()
     store = VectorStore(QdrantClient(":memory:"), "apunts", embedder.model, embedder.dimension)
     monkeypatch.setattr(cli, "make_embedder", lambda settings: embedder)
+    monkeypatch.setattr(cli, "make_llm", lambda settings: ScriptedLLM("Notifica els canvis [1]."))
     monkeypatch.setattr(cli.VectorStore, "from_settings", classmethod(lambda cls, s: store))
     return in_project
 
@@ -128,3 +134,140 @@ def test_ingest_then_search(fake_services):
 def test_search_unknown_subject(fake_services):
     result = runner.invoke(app, ["search", "x", "--subject", "nope"])
     assert result.exit_code == 1 and "Unknown subject" in result.output
+
+
+def test_ask_answers_cites_and_logs(fake_services):
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide"])
+    settings_file = fake_services / "config" / "settings.yaml"
+    settings_file.write_text(settings_file.read_text().replace("min_score: 0.45", "min_score: 0.0"))
+    assert runner.invoke(app, ["ingest"]).exit_code == 0
+
+    result = runner.invoke(app, ["ask", "Què fa el patró observador?"])
+    assert result.exit_code == 0, result.output
+    assert "Notifica els canvis [1]." in result.output
+    assert "yes" in result.output  # source [1] marked as cited
+    log = (fake_services / "logs" / "queries.jsonl").read_text(encoding="utf-8")
+    assert '"user_id": "ignasi"' in log
+
+
+def test_eval_reports_and_saves_a_run(fake_services):
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide", "a4"])
+    assert runner.invoke(app, ["ingest"]).exit_code == 0
+    golden = fake_services / "eval" / "golden.yaml"
+    golden.parent.mkdir()
+    golden.write_text(
+        "questions:\n"
+        "  - id: observer\n"
+        "    question: patró observador canvis estat\n"
+        "    language: ca\n"
+        "    subject: disseny_software\n"
+        "    expected: [{document: disseny_software/theory/patrons.pdf, pages: [1]}]\n"
+        "  - id: typo\n"
+        "    question: x\n"
+        "    language: en\n"
+        "    expected: [{document: disseny_software/theory/missing.pdf}]\n"
+        "  - {id: none, question: mundial de futbol, language: ca, answerable: false}\n",
+        encoding="utf-8",
+    )
+    result = runner.invoke(app, ["eval", "--sweep"])
+    assert result.exit_code == 0, result.output
+    assert "hit@1" in result.output and "MRR" in result.output
+    assert "missing.pdf" in result.output  # unknown expected document is reported
+    assert "min_score" in result.output
+    assert list((fake_services / "data" / "eval").glob("retrieval-*.json"))
+
+
+def test_eval_without_golden_file(fake_services):
+    result = runner.invoke(app, ["eval"])
+    assert result.exit_code == 1 and "golden.example.yaml" in result.output
+
+
+def test_prune_registers_first_so_moves_are_not_deleted(fake_services):
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide"])
+    assert runner.invoke(app, ["ingest"]).exit_code == 0
+    (corpus / "disseny_software" / "labs").mkdir()
+    (corpus / "disseny_software" / "theory" / "patrons.pdf").rename(
+        corpus / "disseny_software" / "labs" / "patrons.pdf"
+    )
+    result = runner.invoke(app, ["prune"])  # no explicit register before it
+    assert result.exit_code == 0, result.output
+    assert "Nothing to prune." in result.output and "1 moved" in result.output
+
+
+def test_detect_suggests_and_evaluates(fake_services):
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide", "a4"])
+    make_pdf(corpus / "informacio_i_seguretat" / "exams" / "e.pdf", ["a4", "dense"])
+    make_pdf(fake_services / "apunts" / "Examen_misteri.pdf", ["slide"])
+    assert runner.invoke(app, ["ingest"]).exit_code == 0
+
+    result = runner.invoke(app, ["detect"])
+    assert result.exit_code == 0, result.output
+    assert "Examen_misteri.pdf" in result.output and "exams (filename)" in result.output
+
+    result = runner.invoke(app, ["detect", "--evaluate"])
+    assert result.exit_code == 0, result.output
+    assert "2 labelled documents" in result.output and "subject correct" in result.output
+
+
+def test_doctor_reports_problems_with_fixes(in_project, monkeypatch):
+    monkeypatch.setenv("QDRANT_URL", "http://127.0.0.1:9")  # nothing listens on port 9
+    monkeypatch.setenv("OLLAMA_URL", "http://127.0.0.1:9")
+    result = runner.invoke(app, ["doctor"])
+    assert result.exit_code == 1
+    assert "docker compose up -d" in result.output and "TESTING_DIR" in result.output
+    assert "Pipeline for ignasi: 0 registered" in result.output
+
+
+def test_duplicates_finds_a_reupload(fake_services):
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide", "a4"])
+    make_pdf(corpus / "informacio_i_seguretat" / "exams" / "e.pdf", ["dense"])
+    # Same content plus one extra page: not an exact duplicate (different hash), but near.
+    make_pdf(corpus / "disseny_software" / "labs" / "patrons_v2.pdf", ["slide", "a4", "image"])
+    assert runner.invoke(app, ["ingest"]).exit_code == 0
+    result = runner.invoke(app, ["duplicates", "--min-similarity", "0.95"])
+    assert result.exit_code == 0, result.output
+    assert "patrons_v2.pdf" in result.output and "1 groups" in result.output
+
+
+def test_eval_answers_end_to_end(fake_services, monkeypatch):
+    from agent_apunts import cli
+    from tests.fakes import ScriptedLLM
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide"])
+    settings_file = fake_services / "config" / "settings.yaml"
+    settings_file.write_text(settings_file.read_text().replace("min_score: 0.45", "min_score: 0.0"))
+    assert runner.invoke(app, ["ingest"]).exit_code == 0
+    llm = ScriptedLLM("El patró notifica [1].", "NOT_FOUND")
+    monkeypatch.setattr(cli, "make_llm", lambda s: llm)
+    (fake_services / "eval").mkdir()
+    (fake_services / "eval" / "golden.yaml").write_text(
+        "questions:\n"
+        "  - id: observer\n"
+        "    question: patró observador\n"
+        "    language: ca\n"
+        "    expected: [{document: disseny_software/theory/patrons.pdf, pages: [1]}]\n"
+        "  - {id: none, question: mundial de futbol, language: ca, answerable: false}\n",
+        encoding="utf-8",
+    )
+    result = runner.invoke(app, ["eval", "--answers"])
+    assert result.exit_code == 0, result.output
+    assert "Abstention accuracy 100%" in result.output
+    assert "100% of answers cite an expected page" in result.output
+    assert list((fake_services / "data" / "eval").glob("answers-*.json"))

@@ -62,11 +62,20 @@ def chunk_id(user_id: str, doc_id: str, index: int, text: str) -> str:
     return str(uuid.uuid5(_CHUNK_NAMESPACE, f"{user_id}|{doc_id}|{index}|{text}"))
 
 
-def chunker_version(settings: Settings, extractor: str) -> str:
-    """Identifies everything that determines the chunks: code version, cleaning/chunking settings
-    and the extraction they read. Change any of them and the documents are re-chunked."""
+def chunker_version(settings: Settings, extractor: str, record: DocumentRecord) -> str:
+    """Identifies everything that determines the chunks: code version, cleaning/chunking settings,
+    the extraction they read, and where the document is and what it is (the header shows the
+    subject and file name). Change any of them and the document is re-chunked."""
     params = json.dumps(
-        [settings.cleaning.model_dump(), settings.chunking.model_dump()], sort_keys=True
+        [
+            settings.cleaning.model_dump(),
+            settings.chunking.model_dump(),
+            record.source,
+            record.rel_path,
+            record.metadata.model_dump(mode="json") if record.metadata else None,
+            _subject_name(record, settings),  # shown in the header: renaming it re-chunks
+        ],
+        sort_keys=True,
     )
     digest = hashlib.sha256(params.encode()).hexdigest()[:8]
     return f"chunker-{CHUNKER_VERSION}:{digest}:{extractor}"
@@ -81,16 +90,27 @@ def _document_label(rel_path: str) -> str:
     return Path(rel_path).stem.replace("_", " ").replace("-", " ")
 
 
-def _header(doc: ExtractedDocument, settings: Settings, title: str | None, page: int) -> str:
+def _subject_name(record: DocumentRecord, settings: Settings) -> str | None:
+    if record.metadata and record.metadata.subject in settings.subjects:
+        return settings.subjects[record.metadata.subject].name
+    return None
+
+
+def _header(record: DocumentRecord, settings: Settings, title: str | None, page: int) -> str:
     parts = []
-    if doc.metadata and doc.metadata.subject in settings.subjects:
-        parts.append(settings.subjects[doc.metadata.subject].name)
-    parts.append(_document_label(doc.rel_path))
+    if subject := _subject_name(record, settings):
+        parts.append(subject)
+    parts.append(_document_label(record.rel_path))
     parts.append(title or f"p. {page}")
     return " · ".join(parts)
 
 
-def chunk_document(doc: ExtractedDocument, settings: Settings) -> ChunkedDocument:
+def chunk_document(
+    doc: ExtractedDocument, record: DocumentRecord, settings: Settings
+) -> ChunkedDocument:
+    """Text comes from the extraction; location and metadata from the manifest record, which is
+    the source of truth: a moved or relabelled file keeps its extraction (same content, same
+    doc_id) but must get its new path and metadata here and in Qdrant."""
     cl, ch = settings.cleaning, settings.chunking
     cleaned = clean_pages(
         [p.text for p in doc.pages],
@@ -111,7 +131,7 @@ def chunk_document(doc: ExtractedDocument, settings: Settings) -> ChunkedDocumen
                     page=page.number,
                     part=part,
                     title=page.title,
-                    header=_header(doc, settings, page.title, page.number),
+                    header=_header(record, settings, page.title, page.number),
                     text=piece,
                     word_count=count_words(piece),
                     language=page.language,
@@ -120,10 +140,10 @@ def chunk_document(doc: ExtractedDocument, settings: Settings) -> ChunkedDocumen
     return ChunkedDocument(
         user_id=doc.user_id,
         doc_id=doc.doc_id,
-        source=doc.source,
-        rel_path=doc.rel_path,
-        metadata=doc.metadata,
-        chunker=chunker_version(settings, doc.extractor),
+        source=record.source,
+        rel_path=record.rel_path,
+        metadata=record.metadata,
+        chunker=chunker_version(settings, doc.extractor, record),
         removed=[RemovedLine(text=t, count=n) for t, n in cleaned.removed.most_common()],
         chunks=chunks,
     )
@@ -160,12 +180,12 @@ def chunk_all(
         if extracted is None or not source.is_file():
             report.not_extracted.append(record.rel_path)
             continue
-        version = chunker_version(settings, extracted.version)
+        version = chunker_version(settings, extracted.version, record)
         if not force and _is_up_to_date(manifest, record, settings, version):
             report.up_to_date.append(record.rel_path)
             continue
         try:
-            doc = chunk_document(read_json(source), settings)
+            doc = chunk_document(read_json(source), record, settings)
         except Exception as e:  # noqa: BLE001 (one bad document must not stop the run)
             report.errors.append((record.rel_path, f"{type(e).__name__}: {e}"))
             continue
