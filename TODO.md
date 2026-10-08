@@ -1,8 +1,15 @@
 # TODO
 
-Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Weeks 2–4 code is built (5–8 Oct); extraction is validated on the
-real corpus (Omarchy + Windows). Next: review PR #3 (proposed D31–D35), run `ingest` + `ask` on the real corpus,
-write the golden set.
+Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Weeks 2–4 code is built (PR #3 open, proposed D30–D37). On Omarchy
+(2026-10-08): `doctor` all green except the LLM (not needed there), 108 docs registered/extracted/chunked, **0 indexed**.
+
+**Next session (start here, on Omarchy, branch `claude/serene-brahmagupta-md8g0y`):**
+1. `git pull && time uv run agent-apunts ingest` → real bge-m3 embeddings on CPU (10–30 min; re-extracts first: loader v6).
+2. `uv run agent-apunts detect --evaluate` and `uv run agent-apunts duplicates` → note the numbers below.
+3. `uv run agent-apunts search "què és el patró Creator?"` and `search "TLB" --hybrid` → check the right slides come first.
+4. Review PR #3 (read `docs/CODE_TOUR.md` first), accept/change D30–D37, merge.
+5. Write `eval/golden.yaml` (20 questions, see `eval/README.md`), then `eval --sweep` and `eval --hybrid`.
+6. On the GTX 1080 PC: `ollama pull qwen2.5:7b`, try `ask`, then `eval --answers`.
 
 ## Corpus findings (2026-09-29, labelled set)
 - 110 PDFs, 2,087 pages. No encrypted/broken files.
@@ -114,3 +121,4 @@ write the golden set.
 - 2026-10-06/07: First real-corpus runs (Omarchy, Windows PC 2): 2 extraction fixes (empty-pages crash, title heuristic v2/v3), setup scripts fixed (clone path, WSL check aborting on PS 5.1, TESTING_DIR auto-fill, Smart App Control diagnosis).
 - 2026-10-07: Week 3 built in the cloud session (D26–D29 approved in one batch): cleaning + chunking + Ollama embedder + Qdrant store/index/search. Tests caught 3 cleaning traps (exam-table numbers, numbered headings, page 0) and an `ingest` bug. Not yet run on real PDFs/Ollama.
 - 2026-10-08: (autonomous overnight, Opus) PR #2 merged after evaluation. PR #3: D30 image measurement, faster re-index, week-4 ask/LLM/log + eval harness (proposed D31–D34), prune (D35). Self-review + automated review found 14 issues, all fixed (incl. prune wiping an unmounted OneDrive source, moved files keeping stale metadata). Nothing run on real PDFs/Ollama yet. Later in the night: detect (D36), duplicates, doctor, eval --answers, hybrid search (D37), code tour; second review round (prune on unknown content, citation parsing, 404 Not Found) fixed.
+- 2026-10-08: (Omarchy, real data) chunk + images on the real corpus (2,366 chunks; Disseny 31% content in images); fixed LaTeX accents (loader v6) and a search traceback; Ollama + bge-m3 installed, doctor green. Index/detect/search moved to the next session (context full).
