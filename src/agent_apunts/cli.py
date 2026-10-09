@@ -9,6 +9,7 @@ from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
 from agent_apunts import detection, doctor, evaluation
@@ -294,8 +295,25 @@ def index(
     """Stage 5: embed chunks (Ollama) and store them in Qdrant. Safe to re-run."""
     s = _settings()
     store = _store(s)
-    with Manifest(s.paths.manifest) as manifest:
-        r = index_all(manifest, s.user.id, s, make_embedder(s), store, force=force)
+    progress = Progress(
+        TextColumn("index"),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TextColumn("documents"),
+        TimeElapsedColumn(),
+        TextColumn("{task.description}"),
+        console=console,
+        transient=True,  # the summary below replaces the bar when done
+    )
+    task = progress.add_task("", total=None)
+
+    def on_progress(done: int, total: int, rel_path: str) -> None:
+        progress.update(task, completed=done, total=total, description=rel_path)
+
+    with progress, Manifest(s.paths.manifest) as manifest:
+        r = index_all(
+            manifest, s.user.id, s, make_embedder(s), store, force=force, on_progress=on_progress
+        )
     console.print(
         f"{len(r.indexed)} indexed ({r.points} points), {len(r.up_to_date)} up to date, "
         f"{len(r.payload_only)} moved/relabelled (payload only), "

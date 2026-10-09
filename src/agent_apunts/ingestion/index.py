@@ -5,6 +5,7 @@ changed, or when Qdrant lost its points (e.g. the Docker volume was deleted).
 """
 
 import hashlib
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from agent_apunts.config import Settings
@@ -54,10 +55,17 @@ def index_all(
     embedder: Embedder,
     store: VectorStore,
     force: bool = False,
+    on_progress: Callable[[int, int, str], None] | None = None,
 ) -> IndexReport:
+    """on_progress(done, total, rel_path) is called before each document and once at the end
+    (rel_path ""), so the CLI can show a progress bar: embedding on a CPU takes minutes and a
+    silent run looked hung on the first real ingest."""
     report = IndexReport()
     store.ensure_collection()
-    for record in manifest.documents(user_id):
+    records = manifest.documents(user_id)
+    for done_count, record in enumerate(records):
+        if on_progress:
+            on_progress(done_count, len(records), record.rel_path)
         chunked = manifest.stage(user_id, record.doc_id, CHUNK_STAGE)
         path = chunks_path(settings, user_id, record.doc_id)
         if chunked is None or not path.is_file():
@@ -100,4 +108,6 @@ def index_all(
             continue
         manifest.mark_done(user_id, record.doc_id, STAGE, version, f"{len(doc.chunks)} points")
         report.indexed.append(record.rel_path)
+    if on_progress:
+        on_progress(len(records), len(records), "")
     return report

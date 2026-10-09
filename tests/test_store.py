@@ -236,3 +236,17 @@ def test_payload_update_failure_is_reported_not_fatal(manifest, settings, embedd
     report = _index(manifest, settings, embedder, store)
     assert report.errors == [("disseny_software/labs/patrons.pdf", "RuntimeError: qdrant timeout")]
     assert len(report.up_to_date) == 1  # the other document is still processed
+
+
+def test_index_reports_progress_once_per_document_and_at_the_end(
+    manifest, settings, embedder, store
+):
+    calls = []
+    _index(manifest, settings, embedder, store, on_progress=lambda *a: calls.append(a))
+    assert [(done, total) for done, total, _ in calls] == [(0, 2), (1, 2), (2, 2)]
+    assert all(path.endswith(".pdf") for _, _, path in calls[:-1]) and calls[-1][2] == ""
+
+    # Up-to-date documents are reported too: a re-run shows the bar move, not a frozen screen.
+    calls.clear()
+    _index(manifest, settings, embedder, store, on_progress=lambda *a: calls.append(a))
+    assert len(calls) == 3
