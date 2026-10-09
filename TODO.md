@@ -5,7 +5,7 @@ Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Weeks 2–4 code is built (PR 
 
 **Next session (start here, on Omarchy):** `cd ~/code/agent-apunts && git pull` (branch `claude/serene-brahmagupta-md8g0y`;
 2026-10-09 commits are on `claude/vibrant-goodall-5rmyu2` until they are pushed to the PR #3 branch).
-1. `uv run agent-apunts ingest` → resumes the interrupted index (626/~2,366 points on 2026-10-09; done documents are
+1. `uv run agent-apunts ingest` → resumes the interrupted index (943/~2,366 points after 32.5 min on 2026-10-09 = ~29 chunks/min on CPU, ~50 min left; done documents are
    skipped, now with a progress bar). Then run it a 2nd time: same point count (idempotent).
 2. `uv run agent-apunts images`, `detect --evaluate`, `duplicates` → paste the output in the session, note the numbers below.
 3. `uv run agent-apunts search "què és el patró Creator?"` and `search "TLB" --hybrid` → check the right slides come first.
@@ -127,4 +127,4 @@ Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Weeks 2–4 code is built (PR 
 - 2026-10-07: Week 3 built in the cloud session (D26–D29 approved in one batch): cleaning + chunking + Ollama embedder + Qdrant store/index/search. Tests caught 3 cleaning traps (exam-table numbers, numbered headings, page 0) and an `ingest` bug. Not yet run on real PDFs/Ollama.
 - 2026-10-08: (autonomous overnight, Opus) PR #2 merged after evaluation. PR #3: D30 image measurement, faster re-index, week-4 ask/LLM/log + eval harness (proposed D31–D34), prune (D35). Self-review + automated review found 14 issues, all fixed (incl. prune wiping an unmounted OneDrive source, moved files keeping stale metadata). Nothing run on real PDFs/Ollama yet. Later in the night: detect (D36), duplicates, doctor, eval --answers, hybrid search (D37), code tour; second review round (prune on unknown content, citation parsing, 404 Not Found) fixed.
 - 2026-10-08: (Omarchy, real data) chunk + images on the real corpus (2,366 chunks; Disseny 31% content in images); fixed LaTeX accents (loader v6) and a search traceback; Ollama + bge-m3 installed, doctor green. Index/detect/search moved to the next session (context full).
-- 2026-10-09: (S04, cloud + Omarchy) Reviewed and accepted D30–D33 (uncited answers flagged, not blocked). First real `ingest`: re-extract (loader v6) + chunk identical to 10-08 (2,059 pages, 2,366 chunks); index interrupted at 626 points (laptop closed; resumable). Added an index progress bar (it looked hung). 205 tests.
+- 2026-10-09: (S04, cloud + Omarchy) Reviewed and accepted D30–D33 (uncited answers flagged, not blocked). First real `ingest`: re-extract (loader v6) + chunk identical to 10-08 (2,059 pages, 2,366 chunks); index interrupted at 943 points after 32.5 min (~29 chunks/min with bge-m3 on CPU → ~80 min for the full corpus; resumable). Added an index progress bar (it looked hung). 205 tests.
