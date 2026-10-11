@@ -48,14 +48,44 @@ def check_sources(settings: Settings) -> list[Check]:
     return checks
 
 
+def _processor(model: dict) -> str:
+    """Where a loaded model runs, like the PROCESSOR column of `ollama ps`."""
+    size, vram = model.get("size", 0), model.get("size_vram", 0)
+    if not size or not vram:
+        return "100% CPU"
+    if vram >= size:
+        return "100% GPU"
+    gpu = round(100 * vram / size)
+    return f"{100 - gpu}% CPU / {gpu}% GPU"
+
+
+def _loaded_models(client: httpx.Client) -> Check | None:
+    """Which models are in memory and on what (GPU or CPU). Answers "is Vulkan/CUDA used?" without
+    reading Ollama's logs. Informative only: Ollama unloads models after ~5 idle minutes."""
+    try:
+        response = client.get("/api/ps")
+        response.raise_for_status()
+        running = response.json().get("models", [])
+    except (httpx.HTTPError, ValueError, AttributeError):
+        return None  # older Ollama without /api/ps: nothing to report
+    if not running:
+        return Check("ollama memory", True, "no model loaded (run `search` or `ask` first)")
+    detail = ", ".join(f"{m.get('name', '?')} {_processor(m)}" for m in running)
+    return Check("ollama memory", True, detail)
+
+
 def check_ollama(settings: Settings, transport: httpx.BaseTransport | None = None) -> list[Check]:
     url = settings.ollama.url
-    fix = "start the Ollama app (Windows) or `sudo systemctl start ollama` (Omarchy)"
+    fix = (
+        "start the Ollama app (Windows) or `sudo systemctl start ollama` (Omarchy); "
+        "not installed? re-run the setup script"
+    )
     try:
         with httpx.Client(base_url=url, timeout=5, transport=transport) as client:
             response = client.get("/api/tags")
-        response.raise_for_status()
-        tags = response.json()
+            response.raise_for_status()
+            tags = response.json()
+            loaded = _loaded_models(client)
     except httpx.HTTPError:
         return [Check("ollama", False, f"not reachable at {url}", fix)]
     except ValueError:  # something answers, but not Ollama (HTML page, other service)
@@ -66,6 +96,8 @@ def check_ollama(settings: Settings, transport: httpx.BaseTransport | None = Non
         present = model in names
         fix = "" if present else f"ollama pull {model}"
         checks.append(Check(role, present, model + ("" if present else " not pulled"), fix))
+    if loaded:
+        checks.append(loaded)
     return checks
 
 
@@ -79,7 +111,10 @@ def check_qdrant(settings: Settings, client: QdrantClient | None = None) -> list
     except Exception:  # noqa: BLE001 (connection errors come in several types)
         return [
             Check(
-                "qdrant", False, f"not reachable at {settings.qdrant.url}", "docker compose up -d"
+                "qdrant",
+                False,
+                f"not reachable at {settings.qdrant.url}",
+                "docker compose up -d (no Docker? Windows: scripts/qdrant-windows.ps1)",
             )
         ]
     if info is None:

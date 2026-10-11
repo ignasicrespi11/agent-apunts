@@ -74,3 +74,47 @@ def test_something_else_on_the_ollama_port(settings):
     transport = httpx.MockTransport(lambda r: httpx.Response(404, text="nope"))
     (check,) = doctor.check_ollama(settings, transport)
     assert not check.ok and "not reachable" in check.detail
+
+
+def test_loaded_models_say_gpu_or_cpu(settings):
+    # /api/ps reports size (total) and size_vram (part in GPU memory), like `ollama ps`.
+    running = [
+        {"name": "bge-m3:latest", "size": 1000, "size_vram": 1000},
+        {"name": "qwen2.5:7b", "size": 1000, "size_vram": 250},
+    ]
+
+    def handler(request):
+        if request.url.path == "/api/ps":
+            return httpx.Response(200, json={"models": running})
+        return httpx.Response(200, json={"models": [{"name": "bge-m3:latest"}]})
+
+    checks = doctor.check_ollama(settings, httpx.MockTransport(handler))
+    memory = next(c for c in checks if c.name == "ollama memory")
+    assert memory.ok
+    assert "bge-m3:latest 100% GPU" in memory.detail
+    assert "qwen2.5:7b 75% CPU / 25% GPU" in memory.detail
+
+
+def test_no_loaded_model_and_old_ollama_without_ps(settings):
+    def handler(request):
+        if request.url.path == "/api/ps":
+            return httpx.Response(200, json={"models": []})
+        return httpx.Response(200, json={"models": []})
+
+    checks = doctor.check_ollama(settings, httpx.MockTransport(handler))
+    assert "no model loaded" in next(c for c in checks if c.name == "ollama memory").detail
+
+    def old(request):
+        if request.url.path == "/api/ps":
+            return httpx.Response(404, text="404 page not found")
+        return httpx.Response(200, json={"models": []})
+
+    checks = doctor.check_ollama(settings, httpx.MockTransport(old))
+    assert checks[0].ok and all(c.name != "ollama memory" for c in checks)
+
+
+def test_processor_column():
+    assert doctor._processor({"size": 10, "size_vram": 0}) == "100% CPU"
+    assert doctor._processor({"size": 10}) == "100% CPU"
+    assert doctor._processor({"size": 10, "size_vram": 10}) == "100% GPU"
+    assert doctor._processor({"size": 10, "size_vram": 5}) == "50% CPU / 50% GPU"
