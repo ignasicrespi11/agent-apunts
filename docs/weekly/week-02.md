@@ -1,7 +1,8 @@
 # Week 2 (6 – 12 Oct 2026): from PDFs to grounded answers
 
-> **DRAFT** written on 8 Oct during an autonomous session. Finish it on Sunday with the real
-> numbers from `eval`, `detect --evaluate` and `images` (marked TODO below).
+> Written 8 Oct (draft), completed Sunday 11 Oct with the real-corpus numbers available so far.
+> Still pending, because the first full index had not finished: `eval` (hit@5, MRR) and
+> `detect --evaluate` (marked TODO below). Fill them in when they exist; don't estimate them.
 
 ## What we built
 - **Validated extraction on the real corpus** on two machines (Omarchy, Windows): 108 PDFs,
@@ -19,8 +20,16 @@
   (metadata auto-detection accuracy), `duplicates` (near-duplicate documents).
 - **Hybrid search** (dense + BM25 keywords) built into the collection layout before the first
   index, switchable per run.
-- 203 automated tests, plus integration tests against a real Qdrant 1.19.1; scale test of 2,000
+- 219 automated tests, plus 5 integration tests against a real Qdrant 1.19.1; scale test of 2,000
   synthetic pages: extraction ~30 s, a second run does no work.
+- **First real-corpus numbers**: 108 PDFs → 2,059 pages → **2,366 chunks**. Content not fully
+  readable as text (image-only pages, or text plus an image covering ≥ 25% of the page):
+  **Disseny de Software 31%**, Arquitectura 17%, IS 3% → OCR/vision (D30) matters mostly for one
+  subject. Embedding speed with bge-m3 on a laptop CPU: **~29 chunks/min** (~80 min for the corpus),
+  which is why indexing is incremental and resumable.
+- **Machine setup as part of the product**: a second Windows PC showed that Docker can't start with
+  virtualization off in the BIOS; the setup script now detects it, Qdrant can run without Docker,
+  and `doctor` says whether Ollama runs on the GPU or the CPU.
 
 ## Why (key decisions)
 - **Size decides how a page is chunked**, not its shape: one rule covers slides (~400 chars) and
@@ -39,8 +48,13 @@
   scores can't be used as a relevance threshold.
 - Evaluation vocabulary: hit@k, MRR, abstention accuracy, citation precision, leave-one-out.
 - Idempotency and versioned stages: re-running the pipeline is cheap and safe.
-- Reviewing AI-written code: two review rounds found 20+ issues, several of which would have
-  destroyed data or produced misleading metrics.
+- Reviewing AI-written code: three review rounds found 25+ issues, several of which would have
+  destroyed data or produced misleading metrics. Round 3 (11 Oct) examples: an empty OneDrive
+  folder mid-sync would have made `ingest` wipe every embedding (now held back until `prune
+  --force`); Ollama silently truncates prompts longer than its context (now measured and warned);
+  a fix for LaTeX accents would have turned the Catalan "l´any" into "lány".
+- Accepting design decisions as the reviewer: D30–D33 (image measurement, LLM interface, grounded
+  answers with two abstention gates, query log) accepted after reading the code and its trade-offs.
 
 ## Interview questions this week prepares me for
 - **"How do you stop the model from making things up?"** It only sees numbered excerpts from the
@@ -63,6 +77,10 @@
   safe pruning) verified on Linux and Windows and covered by 200+ automated tests.
 
 ## Risks / open issues
-- Week 3–4 code has not yet run with Ollama on the real corpus.
-- Proposed decisions D30–D37 are waiting for review (PR #3).
-- The golden set is not written yet; until then, quality claims are unmeasured.
+- The first full index was interrupted at 943 of 2,366 chunks (resumable); `ask` has not run with
+  a real LLM on the real corpus yet.
+- D34–D37 are still proposed (PR #3); D30–D33 accepted 9 Oct.
+- The golden set is not written yet; until then, retrieval quality is unmeasured.
+- Two cleaning choices to decide after the first searches: "Solució:"/"Solution:" labels are removed
+  as boilerplate (chunks lose where a solution starts), and so are topic headers like
+  "P5: Jerarquía de Memoria" (could feed the chunk header instead).
