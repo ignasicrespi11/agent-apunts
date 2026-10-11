@@ -62,6 +62,7 @@ exists. Then the tests in `tests/test_<name>.py`: they are executable examples o
 | `pathlib.Path` | paths as objects (`root / "a" / "b.pdf"`) that work on Windows and Linux | everywhere |
 | Dependency injection | functions receive their collaborators (`embedder`, `store`, `llm`) as parameters instead of creating them; tests pass fakes | `rag.ask`, `index.index_all` |
 | `httpx.MockTransport` | fake HTTP server inside the test: real client code, no network | `tests/test_embeddings.py`, `tests/test_llm.py` |
+| Callback (`on_progress`) | a function passed as a parameter and called back by the library ("one more document done"); the library knows nothing about the screen, the CLI decides how to show it | `index.index_all`, `detection.document_vectors`, `cli._progress_bar` |
 | pytest fixtures | reusable test setup, injected by parameter name | `tests/conftest.py` (`project`, `settings`) |
 | `monkeypatch` | temporarily replace something during a test (env var, function) | `tests/test_cli.py` `fake_services` |
 
@@ -87,7 +88,15 @@ thought of):
 - **Heuristics tuned on few examples**: title detection (`loaders/pdf.py` `guess_title`),
   boilerplate thresholds (`cleaning.py`), doc_type keywords (`detection.py`). Check them on more
   real documents with `inspect` and `chunk`'s audit list.
-- **Deleting things**: `prune.py`. Read the rules for when deletion is allowed.
+- **Deleting things**: `prune.py`. Read the rules for when deletion is allowed, including the
+  brake on mass deletions (`MASS_MIN`, `MASS_SHARE`: an empty folder mid-sync must not wipe
+  everything).
+- **Text normalisation**: `loaders/pdf.py` `normalize_text`. A fix for one corpus can break
+  another language: the LaTeX accent fix first turned the Catalan "l´any" into "lány"
+  (`tests/test_pdf_loader.py` `test_spacing_accents_vs_apostrophes`).
+- **Silent limits of external services**: Ollama truncates prompts longer than `llm.num_ctx`
+  without an error; `ask` now warns from the token count Ollama reports (`rag.py`
+  `context_near_limit`).
 - **Anything that filters by user**: `store.py` `_user_filter`. A bug there leaks one user's notes
   to another (`tests/test_store.py` has an isolation test).
 - **The prompt**: `rag.py` `SYSTEM_PROMPT`. Its effect is only known by running `eval --answers`.
