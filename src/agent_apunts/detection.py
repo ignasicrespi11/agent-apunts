@@ -211,14 +211,21 @@ def evaluate_leave_one_out(
     doc_vectors: dict[str, np.ndarray],
     first_pages: dict[str, str],
     min_margin: float,
+    exclude: dict[str, set[str]] | None = None,
 ) -> DetectionEval:
-    """Predict every labelled document as if it were unorganised, with centroids from the others."""
+    """Predict every labelled document as if it were unorganised, with centroids from the others.
+
+    exclude: doc_id -> documents also left out of its centroids (its near-duplicates). A translated
+    twin or the "with solutions" copy of an exam stays in the centroid otherwise and makes the
+    guess easier than for a really new document: excluding them gives the honest number."""
     labels = {r.doc_id: r.metadata.subject for r in labelled if r.metadata}
+    exclude = exclude or {}
     result = DetectionEval()
     for record in labelled:
         if record.metadata is None or record.doc_id not in doc_vectors:
             continue
-        others = {d: s for d, s in labels.items() if d != record.doc_id}
+        left_out = {record.doc_id} | exclude.get(record.doc_id, set())
+        others = {d: s for d, s in labels.items() if d not in left_out}
         centroids = subject_centroids(doc_vectors, others)
         guess = detect(
             record,
@@ -256,6 +263,11 @@ def similar_pairs(
         if similarity[i, j] >= min_similarity
     ]
     return sorted(pairs, key=lambda p: -p[2])
+
+
+def near_duplicates(pairs: list[tuple[str, str, float]]) -> dict[str, set[str]]:
+    """doc_id -> the other documents in its near-duplicate group (for evaluate_leave_one_out)."""
+    return {d: group - {d} for group in group_pairs(pairs) for d in group}
 
 
 def group_pairs(pairs: list[tuple[str, str, float]]) -> list[set[str]]:

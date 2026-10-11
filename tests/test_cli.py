@@ -224,6 +224,7 @@ def test_detect_suggests_and_evaluates(fake_services):
     result = runner.invoke(app, ["detect", "--evaluate"])
     assert result.exit_code == 0, result.output
     assert "2 labelled documents" in result.output and "subject correct" in result.output
+    assert "also leaving out" in result.output  # the stricter number, without near-duplicates
 
 
 def test_doctor_reports_problems_with_fixes(in_project, monkeypatch):

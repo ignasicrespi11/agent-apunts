@@ -121,6 +121,9 @@ class LLMSettings(_Strict):
 class DetectionSettings(_Strict):
     min_margin: float = Field(ge=0, le=2)
     sample_chunks: int = Field(gt=0)
+    # Document vectors at least this similar are near-duplicates (D19): reported by `duplicates`,
+    # and left out of each other's centroids in `detect --evaluate`. Calibrate with `duplicates`.
+    duplicate_similarity: float = Field(default=0.9, gt=0, le=1)
 
 
 class RetrievalSettings(_Strict):

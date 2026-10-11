@@ -174,3 +174,45 @@ def test_document_vectors_report_progress_and_save_as_they_go(tmp_path):
     embedder = HashEmbedder()
     vectors = det.document_vectors(texts, embedder, cache)  # resumes: 10 were saved
     assert embedder.calls == 1 and len(vectors) == 12
+
+
+def test_leave_one_out_can_also_leave_out_near_duplicates():
+    # "b-twin" is a near-copy of "b" (a translation, say) labelled "x" like b, while the rest of
+    # subject "x" looks different: b is only guessed right thanks to its twin in the centroid.
+    from agent_apunts.ingestion.manifest import DocumentRecord
+    from agent_apunts.metadata import DocumentMetadata
+
+    def record(doc_id, subject):
+        meta = DocumentMetadata(
+            university="UAB", degree="CE", subject=subject, doc_type="theory", taken_in="2025-26"
+        )
+        return DocumentRecord(
+            user_id="u",
+            doc_id=doc_id,
+            source="testing",
+            rel_path=f"{subject}/theory/{doc_id}.pdf",
+            size_bytes=1,
+            metadata=meta,
+            registered_at="",
+            updated_at="",
+        )
+
+    v = {
+        "a": det._unit(np.array([1.0, 0.0, 0.0])),
+        "b": det._unit(np.array([0.0, 0.9, 1.0])),
+        "b-twin": det._unit(np.array([0.0, 0.92, 1.0])),
+        "c": det._unit(np.array([0.1, 1.0, 0.0])),
+        "d": det._unit(np.array([0.0, 1.0, 0.1])),
+    }
+    labelled = [
+        record("a", "x"),
+        record("b", "x"),
+        record("b-twin", "x"),
+        record("c", "y"),
+        record("d", "y"),
+    ]
+    loose = det.evaluate_leave_one_out(labelled, v, {}, 0.0)
+    twins = det.near_duplicates(det.similar_pairs(v, 0.999))
+    assert twins == {"b": {"b-twin"}, "b-twin": {"b"}}
+    strict = det.evaluate_leave_one_out(labelled, v, {}, 0.0, twins)
+    assert strict.subject_correct < loose.subject_correct

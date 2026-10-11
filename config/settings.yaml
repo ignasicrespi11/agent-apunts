@@ -81,6 +81,9 @@ llm:
 detection:
   min_margin: 0.05
   sample_chunks: 6
+  # Near-duplicates (translations, with/without solutions): `duplicates` lists pairs above this,
+  # and `detect --evaluate` also reports accuracy without them (provisional, D19).
+  duplicate_similarity: 0.9
 
 # Query log (D33): one JSON line per question, with user_id. Gitignored: it contains your questions.
 logs_dir: logs

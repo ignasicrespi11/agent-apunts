@@ -748,9 +748,17 @@ def detect(
     margin = s.detection.min_margin
     if evaluate:
         r = detection.evaluate_leave_one_out(labelled, vectors, first_pages, margin)
+        # Same, also leaving out each document's near-duplicates (translation, with solutions...)
+        # from the centroids: closer to a really new document. The number to quote.
+        twins = detection.near_duplicates(
+            detection.similar_pairs(vectors, s.detection.duplicate_similarity)
+        )
+        strict = detection.evaluate_leave_one_out(labelled, vectors, first_pages, margin, twins)
         console.print(
             f"{r.documents} labelled documents, each predicted as if it were unorganised:\n"
-            f"  subject correct:  {r.rate(r.subject_correct, r.documents):.0%}\n"
+            f"  subject correct:  {r.rate(r.subject_correct, r.documents):.0%}"
+            f" ({strict.rate(strict.subject_correct, strict.documents):.0%} also leaving out "
+            f"near-duplicates, similarity >= {s.detection.duplicate_similarity})\n"
             f"  doc_type correct: {r.rate(r.doc_type_correct, r.documents):.0%} (keyword rules)\n"
             f"  confident (margin >= {margin}): {r.rate(r.confident, r.documents):.0%} of "
             f"documents, subject correct in {r.rate(r.confident_correct, r.confident):.0%} of those"
@@ -813,10 +821,14 @@ def run_doctor() -> None:
 
 @app.command()
 def duplicates(
-    min_similarity: float = typer.Option(0.9, help="Report document pairs at least this similar."),
+    min_similarity: float | None = typer.Option(
+        None, help="Report pairs at least this similar. Default: detection.duplicate_similarity."
+    ),
 ) -> None:
     """Near-duplicate documents (translations, with/without solutions...): measure before D19."""
     s = _settings()
+    if min_similarity is None:
+        min_similarity = s.detection.duplicate_similarity
     records, vectors, _ = _document_vectors(s)
     paths = {r.doc_id: r.rel_path for r in records}
     pairs = detection.similar_pairs(vectors, min_similarity)
