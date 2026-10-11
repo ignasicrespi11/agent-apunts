@@ -172,13 +172,18 @@ def test_eval_reports_and_saves_a_run(fake_services):
         "    question: x\n"
         "    language: en\n"
         "    expected: [{document: disseny_software/theory/missing.pdf}]\n"
-        "  - {id: none, question: mundial de futbol, language: ca, answerable: false}\n",
+        "  - {id: none, question: mundial de futbol, language: ca, answerable: false}\n"
+        "  - id: page-typo\n"
+        "    question: patró\n"
+        "    language: ca\n"
+        "    expected: [{document: disseny_software/theory/patrons.pdf, pages: [20]}]\n",
         encoding="utf-8",
     )
     result = runner.invoke(app, ["eval", "--sweep"])
     assert result.exit_code == 0, result.output
     assert "hit@1" in result.output and "MRR" in result.output
     assert "missing.pdf" in result.output  # unknown expected document is reported
+    assert "page-typo: disseny_software/theory/patrons.pdf has 2 pages, not [20]" in result.output
     assert "min_score" in result.output
     assert list((fake_services / "data" / "eval").glob("retrieval-*.json"))
 

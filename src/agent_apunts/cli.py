@@ -532,9 +532,17 @@ def evaluate(
         raise typer.Exit(1) from e
 
     with Manifest(s.paths.manifest) as manifest:
-        known = {r.rel_path for r in manifest.documents(s.user.id)}
-    unknown = sorted({e.document for q in golden.questions for e in q.expected} - known)
+        doc_ids = {r.rel_path: r.doc_id for r in manifest.documents(s.user.id)}
+    expected_docs = {e.document for q in golden.questions for e in q.expected}
+    unknown = sorted(expected_docs - set(doc_ids))
     _list("expected documents not in the manifest (typo? not registered?)", unknown, "red")
+    page_counts = {}
+    for rel_path in expected_docs & set(doc_ids):
+        extracted = processed_path(s, s.user.id, doc_ids[rel_path])
+        if extracted.is_file():
+            page_counts[rel_path] = len(read_json(extracted).pages)
+    bad_pages = evaluation.pages_out_of_range(golden, page_counts)
+    _list("expected pages the document doesn't have (typo?)", bad_pages, "red")
 
     try:
         results = evaluation.run_questions(

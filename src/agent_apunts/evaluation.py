@@ -60,6 +60,19 @@ def load_golden(path: Path) -> GoldenSet:
     return golden
 
 
+def pages_out_of_range(golden: GoldenSet, page_counts: dict[str, int]) -> list[str]:
+    """Expected pages a document doesn't have (a typo like 340 for 34): such a question can never
+    be answered correctly and would silently lower hit@k. page_counts: rel_path -> pages."""
+    problems = []
+    for q in golden.questions:
+        for e in q.expected:
+            last = page_counts.get(e.document)
+            bad = [p for p in e.pages if last is not None and not 1 <= p <= last]
+            if bad:
+                problems.append(f"{q.id}: {e.document} has {last} pages, not {bad}")
+    return problems
+
+
 def first_correct_rank(hits: list[Hit], expected: list[Expected]) -> int | None:
     """1-based rank of the first hit matching any expected (document, page), or None."""
     for rank, hit in enumerate(hits, start=1):
