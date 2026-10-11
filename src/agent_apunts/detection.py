@@ -22,6 +22,7 @@ import json
 import re
 import unicodedata
 from collections import Counter
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -81,29 +82,46 @@ def _cache_key(model: str, texts: list[str]) -> str:
 
 
 def document_vectors(
-    texts_by_doc: dict[str, list[str]], embedder: Embedder, cache_path: Path | None = None
+    texts_by_doc: dict[str, list[str]],
+    embedder: Embedder,
+    cache_path: Path | None = None,
+    on_progress: Callable[[int, int], None] | None = None,
+    docs_per_call: int = 5,
 ) -> dict[str, np.ndarray]:
     """doc_id -> document vector. Cached by (model, sampled texts): unchanged documents are not
-    re-embedded; the rest go to the embedder in one batched call."""
+    re-embedded. The rest are embedded a few documents per call (~30 texts, one Ollama batch) and
+    the cache is saved after each call: the first run on a CPU takes ~20 minutes for the labelled
+    set, so progress is reported (on_progress(done, total)) and an interruption keeps the work
+    already done."""
     cache: dict[str, list[float]] = {}
     if cache_path and cache_path.is_file():
         cache = json.loads(cache_path.read_text(encoding="utf-8"))
     keys = {doc_id: _cache_key(embedder.model, texts) for doc_id, texts in texts_by_doc.items()}
+    live = set(keys.values())  # vectors of deleted/changed documents are forgotten on save
     missing = [d for d in texts_by_doc if keys[d] not in cache]
-    order = [(doc_id, t) for doc_id in missing for t in texts_by_doc[doc_id]]
-    vectors = embedder.embed([t for _, t in order]) if order else []
-    grouped: dict[str, list[list[float]]] = {}
-    for (doc_id, _), vector in zip(order, vectors, strict=True):
-        grouped.setdefault(doc_id, []).append(vector)
-    for doc_id, vs in grouped.items():
-        cache[keys[doc_id]] = [round(float(x), 6) for x in document_vector(vs)]
-    if cache_path and grouped:
-        cache_path.parent.mkdir(parents=True, exist_ok=True)
-        live = {keys[d] for d in texts_by_doc}  # forget vectors of deleted/changed documents
-        tmp = cache_path.with_suffix(".tmp")
-        tmp.write_text(json.dumps({k: v for k, v in cache.items() if k in live}), encoding="utf-8")
-        tmp.replace(cache_path)
+    for start in range(0, len(missing), docs_per_call):
+        if on_progress:
+            on_progress(start, len(missing))
+        batch = missing[start : start + docs_per_call]
+        order = [(doc_id, t) for doc_id in batch for t in texts_by_doc[doc_id]]
+        vectors = embedder.embed([t for _, t in order])
+        grouped: dict[str, list[list[float]]] = {}
+        for (doc_id, _), vector in zip(order, vectors, strict=True):
+            grouped.setdefault(doc_id, []).append(vector)
+        for doc_id, vs in grouped.items():
+            cache[keys[doc_id]] = [round(float(x), 6) for x in document_vector(vs)]
+        if cache_path:
+            _save_cache(cache_path, {k: v for k, v in cache.items() if k in live})
+    if on_progress and missing:
+        on_progress(len(missing), len(missing))
     return {d: np.array(cache[keys[d]], dtype=np.float32) for d in texts_by_doc if keys[d] in cache}
+
+
+def _save_cache(path: Path, cache: dict[str, list[float]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")  # write then rename: a crash never leaves half a JSON file
+    tmp.write_text(json.dumps(cache), encoding="utf-8")
+    tmp.replace(path)
 
 
 def _unit(vector: np.ndarray) -> np.ndarray:

@@ -151,3 +151,26 @@ def test_document_vectors_are_cached(tmp_path):
     assert np.allclose(first["a"], again["a"], atol=1e-5)
     det.document_vectors({"a": ["x y"], "b": ["changed"]}, embedder, cache)
     assert embedder.calls == 2  # only the changed document
+
+
+def test_document_vectors_report_progress_and_save_as_they_go(tmp_path):
+    from tests.fakes import HashEmbedder
+
+    class Interrupted(HashEmbedder):
+        """Fails on the 3rd call, like a Ctrl+C or Ollama stopping mid-run."""
+
+        def embed(self, texts):
+            if self.calls == 2:
+                raise KeyboardInterrupt
+            return super().embed(texts)
+
+    texts = {f"d{i}": [f"text {i}"] for i in range(12)}  # 12 documents, 5 per call -> 3 calls
+    cache = tmp_path / "cache.json"
+    progress = []
+    with pytest.raises(KeyboardInterrupt):
+        det.document_vectors(texts, Interrupted(), cache, on_progress=lambda *a: progress.append(a))
+    assert progress == [(0, 12), (5, 12), (10, 12)]
+
+    embedder = HashEmbedder()
+    vectors = det.document_vectors(texts, embedder, cache)  # resumes: 10 were saved
+    assert embedder.calls == 1 and len(vectors) == 12

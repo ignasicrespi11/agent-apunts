@@ -5,6 +5,7 @@ so the same functions can later be called from FastAPI (D9) without going throug
 """
 
 from collections import Counter
+from collections.abc import Callable
 from pathlib import Path
 
 import typer
@@ -278,6 +279,28 @@ def _with_hybrid(s: Settings, hybrid: bool | None) -> Settings:
     return s.model_copy(update={"retrieval": s.retrieval.model_copy(update={"hybrid": hybrid})})
 
 
+def _progress_bar(label: str) -> tuple[Progress, Callable[[int, int, str], None]]:
+    """A transient bar (documents done, elapsed, current item) for slow embedding loops: on a
+    CPU they run for minutes, and a silent terminal looks hung.
+    Returns (bar, update(done, total, item))."""
+    progress = Progress(
+        TextColumn(label),
+        BarColumn(),
+        MofNCompleteColumn(),
+        TextColumn("documents"),
+        TimeElapsedColumn(),
+        TextColumn("{task.description}"),
+        console=console,
+        transient=True,  # the summary printed afterwards replaces the bar
+    )
+    task = progress.add_task("", total=None)
+
+    def update(done: int, total: int, item: str = "") -> None:
+        progress.update(task, completed=done, total=total, description=item)
+
+    return progress, update
+
+
 def _store(s: Settings) -> VectorStore:
     store = VectorStore.from_settings(s)
     try:
@@ -295,20 +318,10 @@ def index(
     """Stage 5: embed chunks (Ollama) and store them in Qdrant. Safe to re-run."""
     s = _settings()
     store = _store(s)
-    progress = Progress(
-        TextColumn("index"),
-        BarColumn(),
-        MofNCompleteColumn(),
-        TextColumn("documents"),
-        TimeElapsedColumn(),
-        TextColumn("{task.description}"),
-        console=console,
-        transient=True,  # the summary below replaces the bar when done
-    )
-    task = progress.add_task("", total=None)
+    progress, update = _progress_bar("index")
 
     def on_progress(done: int, total: int, rel_path: str) -> None:
-        progress.update(task, completed=done, total=total, description=rel_path)
+        update(done, total, rel_path)
 
     with progress, Manifest(s.paths.manifest) as manifest:
         r = index_all(
@@ -682,7 +695,9 @@ def _document_vectors(s: Settings):
         raise typer.Exit(1)
     try:
         cache = s.paths.data_dir / "detection" / s.user.id / "document_vectors.json"
-        vectors = detection.document_vectors(texts, make_embedder(s), cache)
+        progress, update = _progress_bar("embedding samples")
+        with progress:
+            vectors = detection.document_vectors(texts, make_embedder(s), cache, update)
     except EmbeddingError as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1) from e
