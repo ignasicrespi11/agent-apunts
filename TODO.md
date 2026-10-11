@@ -5,7 +5,7 @@ Real corpus: 108 docs extracted/chunked (2,366 chunks); first index interrupted 
 
 **Branches:** PR #3 = `claude/serene-brahmagupta-md8g0y`. Everything since 2026-10-09 (progress bars, prune brake,
 token counts, loader v7, Windows no-Docker setup, doctor GPU line) is on `claude/vibrant-goodall-5rmyu2`, which is
-PR #3 + 18 commits. Use that branch on every machine; when Ignasi OKs it, Claude pushes it to the PR #3 branch
+PR #3 + 17 commits. Use that branch on every machine; when Ignasi OKs it, Claude pushes it to the PR #3 branch
 (fast-forward) so one PR holds everything.
 
 **Next session — Omarchy** (`cd ~/code/agent-apunts && git fetch && git checkout claude/vibrant-goodall-5rmyu2 && git pull`):
