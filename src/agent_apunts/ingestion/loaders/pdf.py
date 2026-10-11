@@ -17,8 +17,21 @@ _TITLE_TOP_FRACTION = 0.3
 
 
 # Spacing accent marks (as LaTeX writes them into PDFs) -> the combining mark NFC can merge.
+# Only letters that take each accent: vowels (LaTeX writes "í" with a dotless "ı"), and n/a/o for
+# the tilde. Anything else ("´h") is not an accent, so it is left alone.
 _COMBINING = {"\u00b4": "\u0301", "\u00a8": "\u0308", "\u02c6": "\u0302", "\u02dc": "\u0303"}
-_SPACING_ACCENT = re.compile(r"([\u00b4\u00a8\u02c6\u02dc])([A-Za-z])")
+_SPACING_ACCENT = re.compile(r"([\u00b4\u00a8\u02c6])([aeiouAEIOU\u0131])|(\u02dc)([nNaAoO])")
+# Catalan elision typed with the accent key instead of the apostrophe ("l´any", "d´aquest",
+# "s´ha"): a one-letter word, then ´, then a vowel or h. But LaTeX writes "més" as "m´es" and
+# "té" as "t´e", the same shape. A LaTeX page also has accents INSIDE words ("Soluci´o",
+# "f´ısica"), a typed page never does: only pages without them read ´ as an apostrophe.
+_ELISION = re.compile(r"(?<![^\W\d_])([ldsmntLDSMNT])\u00b4(?=[aeiouhAEIOUH\u00c0-\u00ff])")
+_LATEX_ACCENT_IN_WORD = re.compile(r"[^\W\d_]{2}[\u00b4\u00a8\u02c6`][aeiouAEIOU\u0131]")
+
+
+def _accent(m: re.Match) -> str:
+    mark, letter = (m.group(1), m.group(2)) if m.group(1) else (m.group(3), m.group(4))
+    return letter.replace("\u0131", "i") + _COMBINING[mark]
 
 
 def normalize_text(text: str) -> str:
@@ -28,11 +41,14 @@ def normalize_text(text: str) -> str:
       users type, so search and embeddings see the same string.
     - LaTeX-made PDFs often store the accent as a separate *spacing* character before the letter
       ("Soluci´o", "Pr`actica"): it is turned into the real letter ("Solució", "Pràctica"),
-      otherwise "solució" never matches. Found on the real corpus (IS exams).
+      otherwise "solució" never matches. Found on the real corpus (IS exams). On pages without
+      LaTeX accents, the same key typed as a Catalan apostrophe ("l´any") becomes "l'any".
     - Strip trailing spaces per line and collapse 3+ newlines into one blank line.
     Removing boilerplate (logos, repeated footers) is NOT done here: that's the CLEAN stage (D11).
     """
-    text = _SPACING_ACCENT.sub(lambda m: m.group(2) + _COMBINING[m.group(1)], text)
+    if not _LATEX_ACCENT_IN_WORD.search(text):
+        text = _ELISION.sub(r"\1'", text)
+    text = _SPACING_ACCENT.sub(_accent, text)
     # Grave accent: only between letters ("Pr`actica"), so code backticks are left alone.
     text = re.sub(r"(?<=[A-Za-z])`([aeiouAEIOU])", lambda m: m.group(1) + "\u0300", text)
     text = unicodedata.normalize("NFC", text)
@@ -114,7 +130,8 @@ class PdfLoader:
     name = "pymupdf"
     # 2: symbol-only text is never a title. 3: titles only in the top 30% of the page.
     # 4: image_coverage per page (D30). 5: coverage correct on PDFs with an offset CropBox.
-    version = 6  # 6: LaTeX spacing accents fixed ("Soluci´o" -> "Solució")
+    # 6: LaTeX spacing accents fixed ("Soluci´o" -> "Solució").
+    version = 7  # 7: "l´any" is an apostrophe, not "lány"; LaTeX "´ı" -> "í"
     extensions = (".pdf",)
 
     def load(self, path: Path, thumbnails_dir: Path, thumbnail_width: int) -> list[RawPage]:

@@ -153,3 +153,25 @@ def test_latex_spacing_accents_are_fixed():
         == "Solució: Pràctica, pingüino, Área"
     )
     assert normalize_text("use `a` and x = `b`") == "use `a` and x = `b`"  # code backticks kept
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        # LaTeX (OT1 fonts): accent + dotless i for "í", the most common case in Catalan.
+        ("Soluci´o de f´ısica i qu´ımica", "Solució de física i química"),
+        ("ve¨ına, Espa˜na", "veïna, España"),
+        # On a LaTeX page "m´es", "t´e", "s´on" are més, té, són (same shape as an elision).
+        (
+            "Informaci´o: m´es o menys, t´e dues parts, s´on",
+            "Informació: més o menys, té dues parts, són",
+        ),
+        # A typed page (no accent inside a word) using ´ as an apostrophe.
+        ("l´any passat d´aquest curs s´ha fet", "l'any passat d'aquest curs s'ha fet"),
+        ("L´Estat", "L'Estat"),
+        # Not an accent at all: left as it is.
+        ("x´h and 5´ minutes", "x´h and 5´ minutes"),
+    ],
+)
+def test_spacing_accents_vs_apostrophes(raw, expected):
+    assert normalize_text(raw) == expected
