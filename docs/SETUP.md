@@ -167,6 +167,8 @@ Or all stages at once: `uv run agent-apunts ingest` (register → prune → extr
 stage is incremental: re-running only processes new or changed work (`--force` redoes all), re-indexing
 never duplicates points, and moving a PDF between folders only updates its metadata in Qdrant.
 `prune` (also run by `ingest`) forgets PDFs you deleted or replaced; `prune --dry-run` lists them first.
+If a folder suddenly lost most of its PDFs (more than 5 and more than half), nothing is removed there
+until you confirm with `prune --force`: an empty folder mid-sync must not wipe hours of embeddings.
 
 ```bash
 uv run agent-apunts images            # how much content hides in images (code screenshots, diagrams)

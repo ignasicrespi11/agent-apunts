@@ -127,3 +127,34 @@ def test_dry_run_scan_does_not_write_the_manifest(env, settings):
     report = register_source(m, USER, settings.source("testing"), settings, write=False)
     assert "disseny_software/labs/new.pdf" in report.new
     assert m.documents(USER) == []  # nothing written
+
+
+def test_emptied_folder_is_held_back_until_forced(settings):
+    # A OneDrive folder mid-resync, or TESTING_DIR pointing at a new empty folder: every document
+    # looks deleted. Wiping them all automatically would cost hours of re-embedding.
+    root = settings.source("testing").root
+    for i in range(8):
+        make_pdf(root / "disseny_software" / "theory" / f"t{i}.pdf", ["slide"] * (i + 1))
+    with Manifest(settings.paths.manifest) as m:
+        _scan(m, settings)
+        for pdf in (root / "disseny_software" / "theory").glob("t[0-6].pdf"):
+            pdf.unlink()  # 7 of 8 gone: more than 5 and more than half
+
+        orphans = find_orphans(m, USER, settings, _scan(m, settings))
+        assert orphans.documents == []
+        assert orphans.held_sources == [("testing", 7, 8)]
+
+        forced = find_orphans(m, USER, settings, _scan(m, settings), force=True)
+        assert len(forced.documents) == 7 and forced.held_sources == []
+
+
+def test_a_few_deletions_are_never_held_back(settings):
+    root = settings.source("testing").root
+    for i in range(8):
+        make_pdf(root / "disseny_software" / "theory" / f"t{i}.pdf", ["slide"] * (i + 1))
+    with Manifest(settings.paths.manifest) as m:
+        _scan(m, settings)
+        for i in range(5):  # 5 of 8: more than half, but only a handful
+            (root / "disseny_software" / "theory" / f"t{i}.pdf").unlink()
+        orphans = find_orphans(m, USER, settings, _scan(m, settings))
+        assert len(orphans.documents) == 5 and orphans.held_sources == []

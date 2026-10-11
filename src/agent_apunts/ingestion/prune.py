@@ -9,6 +9,12 @@ Deleting is only safe on evidence, so orphans are decided from a `register` run 
 a document is an orphan only if its source folder was there and scanned, its content (doc_id) was
 seen nowhere, and its file did not fail to read. An unmounted OneDrive folder or a file locked
 mid-sync therefore never wipes anything.
+
+One case passes those checks and is still more likely a mistake than a decision: a folder that is
+there but (almost) empty, e.g. a OneDrive client mid-resync or TESTING_DIR pointing at a new,
+empty folder. Every document would look deleted and `ingest` would wipe hours of embeddings. So a
+source losing more than MASS_MIN documents AND more than MASS_SHARE of them is held back until
+the user confirms with `prune --force`.
 """
 
 import shutil
@@ -21,18 +27,28 @@ from agent_apunts.ingestion.manifest import DocumentRecord, Manifest
 from agent_apunts.ingestion.register import RegisterReport
 from agent_apunts.store import VectorStore
 
+MASS_MIN = 5  # deleting a handful of PDFs is normal housekeeping, never held back
+MASS_SHARE = 0.5  # more than half of a source gone at once: confirm first
+
 
 @dataclass
 class Orphans:
     documents: list[DocumentRecord] = field(default_factory=list)
     skipped_sources: list[str] = field(default_factory=list)  # folder missing: nothing decided
     blocked_sources: list[str] = field(default_factory=list)  # unreadable files: nothing decided
+    # (source, orphans, documents): too many at once, held back until `prune --force`
+    held_sources: list[tuple[str, int, int]] = field(default_factory=list)
 
 
 def find_orphans(
-    manifest: Manifest, user_id: str, settings: Settings, scans: dict[str, RegisterReport]
+    manifest: Manifest,
+    user_id: str,
+    settings: Settings,
+    scans: dict[str, RegisterReport],
+    force: bool = False,
 ) -> Orphans:
-    """`scans`: this run's register report per source name (every existing source folder)."""
+    """`scans`: this run's register report per source name (every existing source folder).
+    force: also return orphans of sources that would lose most of their documents at once."""
     for source in settings.sources:
         if source.root.is_dir() and source.name not in scans:
             # A file could have moved into an unscanned folder: we can't tell it from a deletion.
@@ -47,13 +63,22 @@ def find_orphans(
             # A file we couldn't read might be the moved copy of any document: its content is
             # unknown, so this source can't prove anything is gone until the error is fixed.
             result.blocked_sources.append(name)
+    by_source: dict[str, list[DocumentRecord]] = {}
+    totals: dict[str, int] = {}
     for record in manifest.documents(user_id):
+        totals[record.source] = totals.get(record.source, 0) + 1
         scan = scans.get(record.source)
         if scan is None or not scan.scanned or scan.unreadable:
             continue  # folder missing (unmounted drive) or unreadable files: keep everything
         if record.doc_id in seen:
             continue
-        result.documents.append(record)
+        by_source.setdefault(record.source, []).append(record)
+    for name, records in by_source.items():
+        n, total = len(records), totals[name]
+        if not force and n > MASS_MIN and n > MASS_SHARE * total:
+            result.held_sources.append((name, n, total))
+            continue
+        result.documents.extend(records)
     return result
 
 

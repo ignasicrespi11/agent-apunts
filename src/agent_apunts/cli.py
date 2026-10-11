@@ -628,6 +628,9 @@ def _pct(value: float | None) -> str:
 @app.command()
 def prune(
     dry_run: bool = typer.Option(False, help="Only list what would be removed."),
+    force: bool = typer.Option(
+        False, help="Also prune a folder that lost most of its documents at once."
+    ),
 ) -> None:
     """Forget documents whose PDF was deleted or replaced (D35). Never touches the PDFs.
 
@@ -636,13 +639,24 @@ def prune(
     with Manifest(s.paths.manifest) as manifest:
         # A dry run scans without writing: the manifest is left exactly as it was.
         scans = _register_all(s, manifest, s.sources, write=not dry_run)
-        _prune(s, manifest, scans, dry_run=dry_run, strict=True)
+        _prune(s, manifest, scans, dry_run=dry_run, strict=True, force=force)
 
 
 def _prune(
-    s: Settings, manifest: Manifest, scans: dict[str, RegisterReport], dry_run: bool, strict: bool
+    s: Settings,
+    manifest: Manifest,
+    scans: dict[str, RegisterReport],
+    dry_run: bool,
+    strict: bool,
+    force: bool = False,
 ) -> None:
-    orphans = pruning.find_orphans(manifest, s.user.id, s, scans)
+    orphans = pruning.find_orphans(manifest, s.user.id, s, scans, force=force)
+    for name, n, total in orphans.held_sources:
+        console.print(
+            f"[yellow]{name}: {n} of {total} documents look deleted. Nothing removed there: "
+            "is the folder still syncing (OneDrive) or does .env point to the wrong folder? "
+            "If you really deleted them: `agent-apunts prune --force`.[/yellow]"
+        )
     for name in orphans.blocked_sources:
         console.print(
             f"[yellow]{name}: some files could not be read (see errors above); nothing is pruned "
