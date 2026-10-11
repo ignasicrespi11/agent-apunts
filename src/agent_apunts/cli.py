@@ -466,13 +466,18 @@ def ask(
     console.print(answer.answer, markup=False, highlight=False)
     if answer.abstained:
         # max, not the first source: with hybrid search the first isn't always the most similar.
-        best = f"{max(s.score for s in answer.sources):.3f}" if answer.sources else "-"
+        best = f"{max(src.score for src in answer.sources):.3f}" if answer.sources else "-"
         console.print(
             f"[dim](abstained: {answer.reason}; best score {best}, "
             f"min_score {s.retrieval.min_score})[/dim]"
         )
     elif answer.uncited:
         console.print("[yellow]Warning: the answer cites no source. Don't trust it.[/yellow]")
+    if answer.context_near_limit:
+        console.print(
+            f"[yellow]Warning: the prompt used {answer.prompt_tokens} of {s.llm.num_ctx} tokens "
+            "(llm.num_ctx): sources may have been cut. Raise num_ctx or lower top_k.[/yellow]"
+        )
     console.print()
     table = Table("n", "cited", "score", "document", "page")
     for src in answer.sources:
@@ -485,7 +490,12 @@ def ask(
         )
     console.print(table)
     if answer.model:
-        console.print(f"[dim]{answer.model}, {answer.latency_ms / 1000:.1f} s[/dim]")
+        tokens = (
+            f", {answer.prompt_tokens} tokens in / {answer.output_tokens} out"
+            if answer.prompt_tokens is not None
+            else ""
+        )
+        console.print(f"[dim]{answer.model}, {answer.latency_ms / 1000:.1f} s{tokens}[/dim]")
 
 
 @app.command("eval")

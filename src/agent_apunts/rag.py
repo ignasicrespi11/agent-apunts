@@ -68,6 +68,10 @@ class Answer(BaseModel):
     uncited: bool = False  # answered but cited nothing valid: treat with suspicion
     model: str | None = None
     latency_ms: int = 0
+    prompt_tokens: int | None = None  # what the LLM read (None: abstained before it, or unknown)
+    output_tokens: int | None = None
+    # The prompt filled >= 90% of llm.num_ctx: Ollama may have cut sources or rules silently.
+    context_near_limit: bool = False
 
 
 def format_sources(hits: list[Hit]) -> str:
@@ -163,6 +167,13 @@ def ask(
         return Answer(**base, answer=message, abstained=True, reason=reason, cited=[])
 
     response = llm.complete(SYSTEM_PROMPT, build_user_prompt(question, hits))
+    usage = {
+        "model": response.model,
+        "latency_ms": response.latency_ms,
+        "prompt_tokens": response.prompt_tokens,
+        "output_tokens": response.output_tokens,
+        "context_near_limit": (response.prompt_tokens or 0) >= 0.9 * settings.llm.num_ctx,
+    }
     # Gate 2: the model read the sources and says they don't answer the question.
     if is_not_found(response.text):
         return Answer(
@@ -171,8 +182,7 @@ def ask(
             abstained=True,
             reason="not_found",
             cited=[],
-            model=response.model,
-            latency_ms=response.latency_ms,
+            **usage,
         )
     cited = parse_citations(response.text, len(hits))
     return Answer(
@@ -181,8 +191,7 @@ def ask(
         abstained=False,
         cited=cited,
         uncited=not cited,
-        model=response.model,
-        latency_ms=response.latency_ms,
+        **usage,
     )
 
 

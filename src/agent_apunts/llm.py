@@ -19,6 +19,11 @@ class LLMResponse:
     text: str
     model: str
     latency_ms: int
+    # Tokens read and written, when the provider reports them. prompt_tokens close to the context
+    # size means the prompt may have been cut (Ollama truncates silently); both also give the cost
+    # of an answer when a paid provider is compared (phase 2).
+    prompt_tokens: int | None = None
+    output_tokens: int | None = None
 
 
 class LLMClient(Protocol):
@@ -46,6 +51,7 @@ class OllamaClient:
         transport: httpx.BaseTransport | None = None,  # tests pass a fake Ollama here
     ) -> None:
         self.model = model
+        self.num_ctx = num_ctx
         self._options = {"temperature": temperature, "num_ctx": num_ctx}
         self._client = httpx.Client(base_url=url, timeout=timeout, transport=transport)
 
@@ -72,9 +78,16 @@ class OllamaClient:
             raise LLMError(f"Ollama has no model '{self.model}': run `ollama pull {self.model}`")
         if response.status_code != 200:
             raise LLMError(f"Ollama error {response.status_code}: {response.text[:300]}")
-        text = response.json().get("message", {}).get("content", "")
+        data = response.json()
+        text = data.get("message", {}).get("content", "")
         latency = int((time.perf_counter() - start) * 1000)
-        return LLMResponse(text=text.strip(), model=self.model, latency_ms=latency)
+        return LLMResponse(
+            text=text.strip(),
+            model=self.model,
+            latency_ms=latency,
+            prompt_tokens=data.get("prompt_eval_count"),
+            output_tokens=data.get("eval_count"),
+        )
 
 
 def make_llm(settings: Settings) -> LLMClient:

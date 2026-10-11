@@ -154,3 +154,20 @@ def test_is_not_found(text, expected):
     from agent_apunts.rag import is_not_found
 
     assert is_not_found(text) is expected
+
+
+def test_prompt_close_to_the_context_size_is_flagged(settings, indexed):
+    from agent_apunts.llm import LLMResponse
+
+    class FullContext(ScriptedLLM):
+        def complete(self, system, user):
+            self.prompts.append((system, user))
+            used = int(settings.llm.num_ctx * 0.95)  # Ollama may have cut the start of the prompt
+            return LLMResponse("Resposta [1].", self.model, 1, prompt_tokens=used, output_tokens=9)
+
+    answer = _ask("patró observador", _with_min_score(settings, 0.0), indexed, FullContext())
+    assert answer.context_near_limit and answer.output_tokens == 9
+
+    settings0 = _with_min_score(settings, 0.0)
+    normal = _ask("patró observador", settings0, indexed, ScriptedLLM("R [1]."))
+    assert not normal.context_near_limit and normal.prompt_tokens is None

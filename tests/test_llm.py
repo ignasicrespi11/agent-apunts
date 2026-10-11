@@ -49,3 +49,14 @@ def test_not_running_says_how_to_fix_it():
 def test_factory_uses_settings(settings):
     llm = make_llm(settings)
     assert llm.model == settings.llm.model
+
+
+def test_token_counts_are_reported_when_ollama_sends_them():
+    def handler(request):
+        body = {"message": {"content": "ok"}, "prompt_eval_count": 3120, "eval_count": 85}
+        return httpx.Response(200, json=body)
+
+    response = _client(handler).complete("s", "u")
+    assert (response.prompt_tokens, response.output_tokens) == (3120, 85)
+    bare = _client(lambda r: httpx.Response(200, json={"message": {"content": "ok"}}))
+    assert bare.complete("s", "u").prompt_tokens is None
