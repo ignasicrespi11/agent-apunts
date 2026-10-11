@@ -1,20 +1,38 @@
 # TODO
 
-Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Weeks 2–4 code is built (PR #3 open, proposed D30–D37). On Omarchy
-(2026-10-08): `doctor` all green except the LLM (not needed there), 108 docs registered/extracted/chunked, **0 indexed**.
+Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Weeks 2–4 code is built (PR #3 open: D30–D33 accepted, D34–D37 proposed).
+Real corpus: 108 docs extracted/chunked (2,366 chunks); first index interrupted at 943 points on Omarchy (resumable).
 
-**Next session (start here, on Omarchy):** `cd ~/code/agent-apunts && git pull` (branch `claude/serene-brahmagupta-md8g0y`;
-2026-10-09 commits are on `claude/vibrant-goodall-5rmyu2` until they are pushed to the PR #3 branch).
-1. `uv run agent-apunts ingest` → resumes the interrupted index (943/~2,366 points after 32.5 min on 2026-10-09 = ~29 chunks/min on CPU, ~50 min left; done documents are
-   skipped, now with a progress bar). Then run it a 2nd time: same point count (idempotent).
-2. `uv run agent-apunts images`, `detect --evaluate`, `duplicates` → paste the output in the session, note the numbers below.
-3. `uv run agent-apunts search "què és el patró Creator?"` and `search "TLB" --hybrid` → check the right slides come first.
-4. Review D34–D37 (D30–D33 accepted 2026-10-09), then merge PR #3.
-5. Write `eval/golden.yaml` (20 questions, see `eval/README.md`), then `eval --sweep` and `eval --hybrid`.
-6. On the GTX 1080 PC: `ollama pull qwen2.5:7b`, try `ask` (check `ollama ps` says 100% GPU), then `eval --answers`.
-7. To decide (seen in the 2026-10-09 boilerplate list): "Solució:" / "Solution:" labels are removed as boilerplate,
-   so chunks lose where an exam's solution starts; and topic headers like "P5: Jerarquía de Memoria" are removed too
-   (idea: reuse them in the chunk header). Look at `search` results first.
+**Branches:** PR #3 = `claude/serene-brahmagupta-md8g0y`. Everything since 2026-10-09 (progress bars, prune brake,
+token counts, loader v7, Windows no-Docker setup, doctor GPU line) is on `claude/vibrant-goodall-5rmyu2`, which is
+PR #3 + 18 commits. Use that branch on every machine; when Ignasi OKs it, Claude pushes it to the PR #3 branch
+(fast-forward) so one PR holds everything.
+
+**Next session — Omarchy** (`cd ~/code/agent-apunts && git fetch && git checkout claude/vibrant-goodall-5rmyu2 && git pull`):
+1. `uv run agent-apunts ingest` → re-extracts once (loader v7, minutes), then resumes the index from 943 points with a
+   progress bar (~50 min on CPU; only chunks whose text changed are re-embedded). Run it a 2nd time: same point count.
+2. `uv run agent-apunts images`, `detect --evaluate` (~20 min the first time, now with a progress bar and resumable),
+   `duplicates` → paste the output in the session, note the numbers below.
+3. `uv run agent-apunts search "què és el patró Creator?"` and `search "TLB" --hybrid` → right slides first?
+4. Review D34–D37, then merge PR #3.
+5. Write `eval/golden.yaml` (20 questions, see `eval/README.md`; `eval` now flags unknown documents and impossible
+   pages), then `eval --sweep` and `eval --hybrid`.
+
+**Windows PC 2** (Ryzen 5 3600, RX 480 8 GB, 16 GB; `cd $HOME\code\agent-apunts`, same branch):
+1. `winget install --id Ollama.Ollama -e` (or re-run `scripts\setup-windows.ps1`), new terminal, `ollama pull bge-m3`.
+   `OLLAMA_VULKAN=1` is already set (User): check the GPU with `uv run agent-apunts doctor` (line `ollama memory`) after
+   a `search`, or `ollama ps`.
+2. Qdrant: Docker needs **SVM Mode** on in the BIOS (docs/SETUP.md > Troubleshooting); without the BIOS change:
+   `powershell -ExecutionPolicy Bypass -File scripts\qdrant-windows.ps1` in a second window.
+3. `uv run agent-apunts ingest` (CPU or Vulkan: compare chunks/min with Omarchy's ~29), then `ollama pull qwen2.5:7b`
+   and `ask` (on the CPU an answer may take 1–2 min).
+
+**GTX 1080 PC:** `ollama pull qwen2.5:7b`, `ask` on 10 questions (`doctor` should say 100% GPU), then `eval --answers`.
+
+**To decide** (after seeing `search` results): "Solució:" / "Solution:" labels are removed as boilerplate, so chunks
+lose where an exam's solution starts (option A: never treat a short "Word:" label as boilerplate; B: keep removing it
+and mark pages with solutions); topic headers like "P5: Jerarquía de Memoria" are removed too (idea: reuse the most
+frequent removed descriptive line in the chunk header).
 
 ## Corpus findings (2026-09-29, labelled set)
 - 110 PDFs, 2,087 pages. No encrypted/broken files.
@@ -128,3 +146,4 @@ Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Weeks 2–4 code is built (PR 
 - 2026-10-08: (autonomous overnight, Opus) PR #2 merged after evaluation. PR #3: D30 image measurement, faster re-index, week-4 ask/LLM/log + eval harness (proposed D31–D34), prune (D35). Self-review + automated review found 14 issues, all fixed (incl. prune wiping an unmounted OneDrive source, moved files keeping stale metadata). Nothing run on real PDFs/Ollama yet. Later in the night: detect (D36), duplicates, doctor, eval --answers, hybrid search (D37), code tour; second review round (prune on unknown content, citation parsing, 404 Not Found) fixed.
 - 2026-10-08: (Omarchy, real data) chunk + images on the real corpus (2,366 chunks; Disseny 31% content in images); fixed LaTeX accents (loader v6) and a search traceback; Ollama + bge-m3 installed, doctor green. Index/detect/search moved to the next session (context full).
 - 2026-10-09: (S04, cloud + Omarchy) Reviewed and accepted D30–D33 (uncited answers flagged, not blocked). First real `ingest`: re-extract (loader v6) + chunk identical to 10-08 (2,059 pages, 2,366 chunks); index interrupted at 943 points after 32.5 min (~29 chunks/min with bge-m3 on CPU → ~80 min for the full corpus; resumable). Added an index progress bar (it looked hung). 205 tests.
+- 2026-10-10/11: (S04, Windows PC 2 + autonomous) PC 2 blocked: Docker needs SVM in the BIOS, Ollama never installed → `scripts/qdrant-windows.ps1` (no-Docker Qdrant, verified with the 1.19.1 binary), setup checks virtualization/AMD GPU, `doctor` shows GPU vs CPU. Third review of PR #3 (5 fixes, each with a test): prune brake on mass deletions, detect progress + resumable cache, LLM token counts + truncation warning, loader v7 (LaTeX ´ı, Catalan apostrophes), eval flags impossible pages; detect also reports accuracy without near-duplicates. week-02 summary completed (eval numbers pending). 220 tests. Couldn't test with a real model in the cloud (Ollama registry/Hugging Face blocked).
