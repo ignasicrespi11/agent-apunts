@@ -319,13 +319,9 @@ def index(
     s = _settings()
     store = _store(s)
     progress, update = _progress_bar("index")
-
-    def on_progress(done: int, total: int, rel_path: str) -> None:
-        update(done, total, rel_path)
-
     with progress, Manifest(s.paths.manifest) as manifest:
         r = index_all(
-            manifest, s.user.id, s, make_embedder(s), store, force=force, on_progress=on_progress
+            manifest, s.user.id, s, make_embedder(s), store, force=force, on_progress=update
         )
     console.print(
         f"{len(r.indexed)} indexed ({r.points} points), {len(r.up_to_date)} up to date, "
