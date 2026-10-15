@@ -60,3 +60,11 @@ def test_token_counts_are_reported_when_ollama_sends_them():
     assert (response.prompt_tokens, response.output_tokens) == (3120, 85)
     bare = _client(lambda r: httpx.Response(200, json={"message": {"content": "ok"}}))
     assert bare.complete("s", "u").prompt_tokens is None
+
+
+def test_ollama_crash_mid_answer_says_what_to_do():
+    def crash(request):
+        raise httpx.RemoteProtocolError("server disconnected", request=request)
+
+    with pytest.raises(LLMError, match="stopped answering"):
+        _client(crash).complete("s", "u")

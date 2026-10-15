@@ -62,6 +62,17 @@ class OllamaEmbedder:
                 f"cannot reach Ollama at {self._client.base_url}. Is it running? "
                 "(start the Ollama app, or `ollama serve`)"
             ) from e
+        except httpx.TimeoutException as e:
+            raise EmbeddingError(
+                f"Ollama took more than {self._client.timeout.read:.0f} s for {len(batch)} texts: "
+                "is the machine busy? Re-run: finished documents are kept"
+            ) from e
+        except httpx.TransportError as e:  # connection dropped mid-request: Ollama crashed
+            raise EmbeddingError(
+                f"Ollama stopped answering ({type(e).__name__}): it may have crashed (out of "
+                "GPU memory, or an experimental GPU backend such as OLLAMA_VULKAN). Restart it "
+                "and re-run; finished documents are kept"
+            ) from e
         if response.status_code == 404:
             raise EmbeddingError(
                 f"Ollama has no model '{self.model}': run `ollama pull {self.model}`"

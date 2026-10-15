@@ -74,6 +74,11 @@ class OllamaClient:
             raise LLMError(
                 f"'{self.model}' took too long to answer: try a smaller model in settings.yaml"
             ) from e
+        except httpx.TransportError as e:  # connection dropped mid-request: Ollama crashed
+            raise LLMError(
+                f"Ollama stopped answering ({type(e).__name__}): it may have run out of GPU "
+                f"memory for '{self.model}'. Restart Ollama, or use a smaller model"
+            ) from e
         if response.status_code == 404:
             raise LLMError(f"Ollama has no model '{self.model}': run `ollama pull {self.model}`")
         if response.status_code != 200:
