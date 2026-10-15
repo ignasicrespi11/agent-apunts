@@ -10,6 +10,7 @@ import httpx
 from qdrant_client import QdrantClient
 
 from agent_apunts.config import Settings
+from agent_apunts.ingestion import ocr
 from agent_apunts.ingestion.discovery import find_files
 from agent_apunts.ingestion.loaders import supported_extensions
 from agent_apunts.ingestion.manifest import Manifest
@@ -131,6 +132,22 @@ def check_qdrant(settings: Settings, client: QdrantClient | None = None) -> list
     )
     fix = "" if same else "settings changed the embedding model: new qdrant.collection + `index`"
     return [Check("qdrant", same, detail, fix)]
+
+
+def check_ocr(settings: Settings) -> list[Check]:
+    """OCR (D39) is optional: only checked when extraction.ocr.enabled is on."""
+    if not settings.extraction.ocr.enabled:
+        return [Check("ocr", True, "off (extraction.ocr.enabled: false)")]
+    language = ocr.tesseract_language(settings.languages)
+    tessdata = ocr.find_tessdata()
+    missing = ocr.missing_languages(language, tessdata)
+    if missing:
+        files = ", ".join(f"{m}.traineddata" for m in missing)
+        where = str(tessdata) if tessdata else "Tesseract not found"
+        return [Check("ocr", False, f"missing {files} ({where})", "docs/SETUP.md > OCR")]
+    if problem := ocr.self_test(language, tessdata):
+        return [Check("ocr", False, problem, "docs/SETUP.md > OCR")]
+    return [Check("ocr", True, f"Tesseract {language} in {tessdata}")]
 
 
 def pipeline_counts(settings: Settings, user_id: str) -> dict[str, int]:

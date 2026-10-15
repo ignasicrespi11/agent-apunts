@@ -16,6 +16,13 @@ from agent_apunts.config import Settings
 from agent_apunts.ingestion.language import detect_language
 from agent_apunts.ingestion.loaders import Loader, loader_for
 from agent_apunts.ingestion.manifest import DocumentRecord, Manifest
+from agent_apunts.ingestion.ocr import (
+    OcrOptions,
+    find_tessdata,
+    missing_languages,
+    self_test,
+    tesseract_language,
+)
 from agent_apunts.metadata import DocumentMetadata
 
 STAGE = "extract"
@@ -33,6 +40,7 @@ class ExtractedPage(BaseModel):
     image_coverage: float = 0.0  # 0-1; default keeps JSON from older extractor versions readable
     mostly_image: bool  # little text: the content is in images/diagrams (D14)
     thumbnail: str | None  # relative to data_dir, '/'-separated
+    ocr_text: str = ""  # text read from the page's images when extraction.ocr is on (D39)
 
 
 class ExtractedDocument(BaseModel):
@@ -46,8 +54,44 @@ class ExtractedDocument(BaseModel):
     pages: list[ExtractedPage]
 
 
-def loader_version(loader: Loader) -> str:
-    return f"{loader.name}-{loader.version}"
+OCR_VERSION = 1  # bump when ocr.py changes its output
+
+
+class OcrUnavailableError(RuntimeError):
+    """extraction.ocr is on but Tesseract's language files aren't installed: says how to fix it."""
+
+
+def loader_version(loader: Loader, settings: Settings | None = None) -> str:
+    """What produced the extraction: the loader version, plus the OCR settings when OCR is on
+    (turning OCR on or changing its settings re-extracts, and then re-chunks)."""
+    version = f"{loader.name}-{loader.version}"
+    ocr = settings.extraction.ocr if settings else None
+    if ocr and ocr.enabled:
+        version += (
+            f"+ocr{OCR_VERSION}-{ocr.dpi}-{ocr.min_image_share}-{'+'.join(settings.languages)}"
+        )
+    return version
+
+
+def ocr_options(settings: Settings) -> OcrOptions | None:
+    """The OCR options for the loader, or None when OCR is off. Checked once per run, before any
+    document: a missing language file would otherwise fail every page."""
+    ocr = settings.extraction.ocr
+    if not ocr.enabled:
+        return None
+    language = tesseract_language(settings.languages)
+    tessdata = find_tessdata()
+    missing = missing_languages(language, tessdata)
+    if missing:
+        where = f" in {tessdata}" if tessdata else " (Tesseract not found)"
+        raise OcrUnavailableError(
+            f"OCR is on but these Tesseract language files are missing{where}: "
+            f"{', '.join(m + '.traineddata' for m in missing)}. Install them (docs/SETUP.md, OCR) "
+            "or set extraction.ocr.enabled: false"
+        )
+    if problem := self_test(language, tessdata):
+        raise OcrUnavailableError(f"{problem} (docs/SETUP.md, OCR)")
+    return OcrOptions(language, ocr.dpi, ocr.min_image_share, str(tessdata))
 
 
 def processed_path(settings: Settings, user_id: str, doc_id: str) -> Path:
@@ -55,7 +99,9 @@ def processed_path(settings: Settings, user_id: str, doc_id: str) -> Path:
     return settings.paths.processed_dir / user_id / f"{doc_id}.json"
 
 
-def extract_document(record: DocumentRecord, settings: Settings) -> ExtractedDocument:
+def extract_document(
+    record: DocumentRecord, settings: Settings, ocr: OcrOptions | None = None
+) -> ExtractedDocument:
     loader = loader_for(Path(record.rel_path))
     if loader is None:
         raise ValueError(f"no loader for {record.rel_path}")
@@ -64,7 +110,7 @@ def extract_document(record: DocumentRecord, settings: Settings) -> ExtractedDoc
     ex = settings.extraction
 
     pages = []
-    for raw in loader.load(path, thumbs, ex.thumbnail_width):
+    for raw in loader.load(path, thumbs, ex.thumbnail_width, ocr):
         chars = len(raw.text)
         pages.append(
             ExtractedPage(
@@ -88,6 +134,7 @@ def extract_document(record: DocumentRecord, settings: Settings) -> ExtractedDoc
                     if raw.thumbnail
                     else None
                 ),
+                ocr_text=raw.ocr_text,
             )
         )
     counts = Counter(p.language for p in pages if p.language)
@@ -97,7 +144,7 @@ def extract_document(record: DocumentRecord, settings: Settings) -> ExtractedDoc
         source=record.source,
         rel_path=record.rel_path,
         metadata=record.metadata,
-        extractor=loader_version(loader),
+        extractor=loader_version(loader, settings),
         languages=[lang for lang, _ in counts.most_common()],
         pages=pages,
     )
@@ -123,7 +170,7 @@ def is_up_to_date(manifest: Manifest, record: DocumentRecord, settings: Settings
     return (
         loader is not None
         and done is not None
-        and done.version == loader_version(loader)
+        and done.version == loader_version(loader, settings)
         and processed_path(settings, record.user_id, record.doc_id).is_file()
     )
 
@@ -143,12 +190,15 @@ def extract_all(
 ) -> ExtractReport:
     """Extract every registered document of `user_id` that isn't up to date (or all with force)."""
     report = ExtractReport()
+    ocr = None
     for record in manifest.documents(user_id):
         if not force and is_up_to_date(manifest, record, settings):
             report.up_to_date.append(record.rel_path)
             continue
+        if ocr is None:  # only when something needs extracting: raises if OCR can't run
+            ocr = ocr_options(settings) or False
         try:
-            doc = extract_document(record, settings)
+            doc = extract_document(record, settings, ocr or None)
         except Exception as e:  # noqa: BLE001 (one bad file must not stop the whole run)
             report.errors.append((record.rel_path, f"{type(e).__name__}: {e}"))
             continue

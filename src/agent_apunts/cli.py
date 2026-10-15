@@ -22,7 +22,12 @@ from agent_apunts.embeddings import EmbeddingError, make_embedder
 from agent_apunts.ingestion import prune as pruning
 from agent_apunts.ingestion.chunk import chunk_all, chunks_path, read_chunks
 from agent_apunts.ingestion.discovery import find_files
-from agent_apunts.ingestion.extract import extract_all, processed_path, read_json
+from agent_apunts.ingestion.extract import (
+    OcrUnavailableError,
+    extract_all,
+    processed_path,
+    read_json,
+)
 from agent_apunts.ingestion.image_report import image_report
 from agent_apunts.ingestion.index import index_all
 from agent_apunts.ingestion.loaders import supported_extensions
@@ -159,8 +164,12 @@ def extract(
 ) -> None:
     """Stage 2: registered documents -> data/processed/<user>/<doc_id>.json (+ thumbnails)."""
     s = _settings()
-    with Manifest(s.paths.manifest) as manifest:
-        r = extract_all(manifest, s.user.id, s, force=force)
+    try:
+        with Manifest(s.paths.manifest) as manifest:
+            r = extract_all(manifest, s.user.id, s, force=force)
+    except OcrUnavailableError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1) from e
     console.print(
         f"{len(r.extracted)} extracted ({r.pages} pages), {len(r.up_to_date)} up to date, "
         f"{len(r.errors)} errors"
@@ -927,7 +936,12 @@ def detect(
 def run_doctor() -> None:
     """Check everything a machine needs (folders, Ollama + models, Qdrant) and pipeline progress."""
     s = _settings()
-    checks = doctor.check_sources(s) + doctor.check_ollama(s) + doctor.check_qdrant(s)
+    checks = (
+        doctor.check_sources(s)
+        + doctor.check_ollama(s)
+        + doctor.check_qdrant(s)
+        + doctor.check_ocr(s)
+    )
     table = Table("", "check", "status", "fix")
     for c in checks:
         table.add_row("[green]ok[/green]" if c.ok else "[red]!![/red]", c.name, c.detail, c.fix)

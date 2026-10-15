@@ -21,6 +21,7 @@ from agent_apunts.ingestion.manifest import DocumentRecord, Manifest
 from agent_apunts.metadata import DocumentMetadata
 
 STAGE = "chunk"
+OCR_LABEL = "Text in images (OCR):"
 CHUNKER_VERSION = 2  # bump when chunking/cleaning code changes its output. 2: labels kept
 # Fixed namespace for chunk UUIDs: same inputs -> same UUID on every machine, forever.
 _CHUNK_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://github.com/ignasicrespi11/agent-apunts")
@@ -126,11 +127,23 @@ def chunk_document(
         cl.repeated_line_min_pages,
         cl.repeated_line_max_chars,
     )
+    # Text read from images (D39), cleaned on its own (a template image on every slide repeats
+    # like a footer) and appended under a label, so the model knows it comes from an image.
+    ocr = clean_pages(
+        [p.ocr_text for p in doc.pages],
+        cl.repeated_line_min_share,
+        cl.repeated_line_min_pages,
+        cl.repeated_line_max_chars,
+    )
+    page_texts = [
+        f"{text}\n\n{OCR_LABEL}\n{image_text}".strip() if image_text else text
+        for text, image_text in zip(cleaned.pages, ocr.pages, strict=True)
+    ]
     topic = None
     if ch.topic_in_header:
         topic = topic_line(cleaned.removed, avoid=(_subject_name(record, settings) or "",))
     chunks: list[Chunk] = []
-    for page, text in zip(doc.pages, cleaned.pages, strict=True):
+    for page, text in zip(doc.pages, page_texts, strict=True):
         if count_words(text) < ch.min_words:
             continue  # image-only or blank page: nothing to search (D29)
         for part, piece in enumerate(split_text(text, ch.max_words, ch.target_words)):
@@ -155,7 +168,9 @@ def chunk_document(
         rel_path=record.rel_path,
         metadata=record.metadata,
         chunker=chunker_version(settings, doc.extractor, record),
-        removed=[RemovedLine(text=t, count=n) for t, n in cleaned.removed.most_common()],
+        removed=[
+            RemovedLine(text=t, count=n) for t, n in (cleaned.removed + ocr.removed).most_common()
+        ],
         chunks=chunks,
     )
 

@@ -118,3 +118,17 @@ def test_processor_column():
     assert doctor._processor({"size": 10}) == "100% CPU"
     assert doctor._processor({"size": 10, "size_vram": 10}) == "100% GPU"
     assert doctor._processor({"size": 10, "size_vram": 5}) == "50% CPU / 50% GPU"
+
+
+def test_ocr_check_only_when_enabled(settings, monkeypatch):
+    (off,) = doctor.check_ocr(settings)
+    assert off.ok and "off" in off.detail
+    ex = settings.extraction
+    on = settings.model_copy(
+        update={
+            "extraction": ex.model_copy(update={"ocr": ex.ocr.model_copy(update={"enabled": True})})
+        }
+    )
+    monkeypatch.setattr("agent_apunts.ingestion.ocr.find_tessdata", lambda: None)
+    (missing,) = doctor.check_ocr(on)
+    assert not missing.ok and "cat.traineddata" in missing.detail and "SETUP" in missing.fix

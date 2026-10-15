@@ -9,6 +9,7 @@ import numpy as np
 import pymupdf
 
 from agent_apunts.ingestion.loaders.base import RawPage
+from agent_apunts.ingestion.ocr import OcrOptions, image_text
 
 _MAX_TITLE_CHARS = 200
 # A title must start in the top 30% of the page. Big text lower down is a callout, not a title
@@ -134,7 +135,13 @@ class PdfLoader:
     version = 7  # 7: "l´any" is an apostrophe, not "lány"; LaTeX "´ı" -> "í"
     extensions = (".pdf",)
 
-    def load(self, path: Path, thumbnails_dir: Path, thumbnail_width: int) -> list[RawPage]:
+    def load(
+        self,
+        path: Path,
+        thumbnails_dir: Path,
+        thumbnail_width: int,
+        ocr: OcrOptions | None = None,
+    ) -> list[RawPage]:
         pages: list[RawPage] = []
         with pymupdf.open(path) as doc:
             if doc.needs_pass:
@@ -158,6 +165,7 @@ class PdfLoader:
                         image_count=len(page.get_images()),
                         image_coverage=image_coverage(page),
                         thumbnail=thumbnail,
+                        ocr_text=image_text(page, ocr) if ocr else "",
                     )
                 )
         return pages

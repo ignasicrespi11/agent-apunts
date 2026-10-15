@@ -197,6 +197,28 @@ Optional, with Qdrant running: `QDRANT_TEST_URL=http://localhost:6333 uv run pyt
 (Windows PowerShell: `$env:QDRANT_TEST_URL="http://localhost:6333"; uv run pytest tests/test_store_server.py`)
 tests the store against the real server in a throwaway collection.
 
+## 7. OCR of images (optional, D39)
+
+Off by default. It reads the text inside large images (code screenshots, diagrams) with the
+Tesseract engine that PyMuPDF already includes: you only need the **language files** (Catalan,
+Spanish, English) and to say where they are.
+
+Windows (PowerShell, no admin needed):
+```powershell
+$td = "$HOME\tessdata"; New-Item -ItemType Directory -Force $td | Out-Null
+foreach ($l in "cat", "spa", "eng") {
+  Invoke-WebRequest "https://github.com/tesseract-ocr/tessdata_fast/raw/main/$l.traineddata" -OutFile "$td\$l.traineddata"
+}
+[Environment]::SetEnvironmentVariable("TESSDATA_PREFIX", $td, "User")   # then open a NEW terminal
+```
+Omarchy: `sudo pacman -S tesseract-data-cat tesseract-data-spa tesseract-data-eng` (found automatically).
+
+Then set `extraction.ocr.enabled: true` in `config/settings.yaml` and check with
+`uv run agent-apunts doctor` (line `ocr`: it OCRs a tiny test image, so broken downloads are caught).
+`ingest` re-extracts every document once (OCR adds a few minutes on a CPU) and re-chunks; pages
+whose images had text get a block labelled `Text in images (OCR):`. Measure it: `eval` before and
+after, then `compare` (questions tagged `code-image` should gain). Turn it off the same way.
+
 ## Troubleshooting
 
 | Symptom | Fix |
@@ -212,6 +234,7 @@ tests the store against the real server in a throwaway collection.
 | `ask` is very slow on Omarchy | A 7B model on a CPU takes minutes. Use the GTX 1080 PC, or a smaller model in `settings.yaml` (`llm.model`, e.g. `qwen2.5:3b`). |
 | `cannot reach Qdrant` | `docker compose up -d` (Windows: Docker Desktop must be running), or `scripts\qdrant-windows.ps1` without Docker. |
 | Docker Desktop: `Virtualization is disabled in firmware` | Turn on virtualization in the BIOS/UEFI: Windows Settings → System → Recovery → Advanced startup → Restart now → Troubleshoot → Advanced options → UEFI Firmware Settings. The option is **SVM Mode** on AMD CPUs (MSI: OC → Advanced CPU Configuration; ASUS/ASRock: Advanced → CPU Configuration; Gigabyte: Tweaker → Advanced CPU Settings), **Intel VT-x** on Intel. Save (F10), reboot; Task Manager → Performance → CPU must say "Virtualization: Enabled". Board model: `Get-CimInstance Win32_BaseBoard`. Meanwhile: Qdrant without Docker (step 4). |
+| `doctor`: `ocr` missing `cat.traineddata` / could not load | Language files not where `TESSDATA_PREFIX` points, or a download saved an error page instead of the file (check each file is > 1 MB): re-download (step 7). |
 | `ollama` not recognized / `winget upgrade Ollama.Ollama` finds nothing | Ollama isn't installed (setup run before 2026-10-08): re-run the setup script, or `winget install --id Ollama.Ollama -e`, then open a new terminal. |
 | `ollama ps` says `100% CPU` on a PC with a GPU | AMD: turn on Vulkan (step 4, "Is Ollama using the GPU?"). NVIDIA: update the driver. Split CPU/GPU: the model is too big for the GPU memory. |
 | `collection 'apunts' was built with ...` | The embedding model changed: set a new `qdrant.collection` in `settings.yaml` and run `index`. |

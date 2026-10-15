@@ -78,7 +78,14 @@ Only when you want to use it (`cd $HOME\code\agent-apunts`, same branch):
 - Read the PR #3 description and merge it on GitHub when step 1 works (Claude updates the PR first).
 - Then delete the old branches (`claude/serene-brahmagupta-md8g0y`, `feat/dev-environment`) in GitHub's branch list.
 
-## 6. Still yours to decide (no rush)
+## 6. Experiments, once the golden set exists (each: change, `ingest`, `eval`, `compare` 📋)
+- OCR of code screenshots (D39): install the language files (`docs/SETUP.md` step 7), `doctor` → `ocr` ok,
+  `extraction.ocr.enabled: true`. Look at the `code-image` questions in `compare`.
+- Hybrid search: `eval --hybrid` vs `eval` (no re-index needed).
+- Topic in chunk headers: below.
+- The agent: `eval --answers --agent` vs `eval --answers`, then `compare --kind answers`.
+
+## 7. Still yours to decide (no rush)
 
 - Topic headers like "P5: Jerarquía de Memoria": built as an experiment, off by default. After the golden
   set: set `chunking.topic_in_header: true` in `config/settings.yaml`, `uv run agent-apunts ingest` (re-embeds

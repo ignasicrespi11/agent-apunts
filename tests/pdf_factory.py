@@ -28,8 +28,26 @@ def _image(page: pymupdf.Page, rect: pymupdf.Rect) -> None:
     page.insert_image(rect, pixmap=pix)
 
 
+CODE_LINES = (
+    "public class Creator {",
+    "  // El creador crea la instància",
+    "  Sale sale = new Sale(pagament);",
+)
+
+
+def code_screenshot() -> pymupdf.Pixmap:
+    """An image of monospace code, like a screenshot pasted on a slide."""
+    src = pymupdf.open()
+    page = src.new_page(width=400, height=150)
+    for i, line in enumerate(CODE_LINES):
+        page.insert_text((20, 40 + 30 * i), line, fontname="cour", fontsize=14)
+    pixmap = page.get_pixmap(dpi=150)
+    src.close()
+    return pixmap
+
+
 def make_pdf(path: Path, pages: list[str]) -> Path:
-    """pages: list of 'slide', 'a4', 'dense', 'code' or 'image' (one page each)."""
+    """pages: list of 'slide', 'a4', 'dense', 'code', 'image' or 'screenshot' (one page each)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     doc = pymupdf.open()
     for kind in pages:
@@ -57,6 +75,11 @@ def make_pdf(path: Path, pages: list[str]) -> Path:
         elif kind == "image":
             page = doc.new_page(width=SLIDE[0], height=SLIDE[1])
             _image(page, pymupdf.Rect(50, 50, 790, 545))
+        elif kind == "screenshot":  # a title and a code screenshot whose text is only pixels (D39)
+            page = doc.new_page(width=SLIDE[0], height=SLIDE[1])
+            page.insert_text((50, 80), "Patró Creator", fontsize=30)
+            page.insert_image(pymupdf.Rect(80, 140, 760, 460), pixmap=code_screenshot())
+            _image(page, pymupdf.Rect(770, 20, 820, 50))  # a small logo: never OCR'd
         else:
             raise ValueError(kind)
     doc.save(path)

@@ -69,12 +69,21 @@ class Paths(_Strict):
         return self.data_dir / "eval"
 
 
+class OcrSettings(_Strict):
+    """Text inside images (D39, proposed). Off by default: needs Tesseract's language files."""
+
+    enabled: bool = False
+    dpi: int = Field(default=200, ge=72, le=600)
+    min_image_share: float = Field(default=0.05, ge=0, le=1)  # skip logos and icons
+
+
 class ExtractionSettings(_Strict):
     image_page_max_chars: int = Field(ge=0)
     thumbnail_width: int = Field(gt=0)
     language_min_chars: int = Field(ge=0)
     language_min_confidence: float = Field(ge=0, le=1)
     large_image_min_coverage: float = Field(ge=0, le=1)
+    ocr: OcrSettings = OcrSettings()
 
 
 class CleaningSettings(_Strict):

@@ -28,6 +28,12 @@ extraction:
   # `images` report (D30): a page with text whose images cover at least this share of it probably
   # holds content we don't read (code screenshots, diagrams).
   large_image_min_coverage: 0.25
+  # OCR of large images (D39, proposed): code screenshots, diagrams. Needs Tesseract with the
+  # language files for `languages` (docs/SETUP.md). Turning it on re-extracts every document.
+  ocr:
+    enabled: false
+    dpi: 200
+    min_image_share: 0.05  # images smaller than 5% of the page (logos, icons) are skipped
 
 # Stage 3, CLEAN (D27): a line is boilerplate (logo text, footer, course name) when it appears on at
 # least this share of a document's pages, on at least this many pages, and is short. Digits are

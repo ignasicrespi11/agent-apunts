@@ -6,7 +6,10 @@ format (DOCX, PPTX) only needs a new loader, and every format gets the same trea
 """
 
 from pathlib import Path
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
+
+if TYPE_CHECKING:
+    from agent_apunts.ingestion.ocr import OcrOptions
 
 from pydantic import BaseModel, ConfigDict
 
@@ -24,6 +27,7 @@ class RawPage(BaseModel):
     image_count: int  # embedded images on the page
     image_coverage: float = 0.0  # fraction of the page covered by images, 0-1 (D30)
     thumbnail: Path | None  # PNG written by the loader, if it can render pages
+    ocr_text: str = ""  # text read from the page's images, when OCR is on (D39)
 
 
 class Loader(Protocol):
@@ -34,6 +38,13 @@ class Loader(Protocol):
     version: int  # bump when output changes: documents extracted with an older version are redone
     extensions: tuple[str, ...]  # lowercase, with dot: (".pdf",)
 
-    def load(self, path: Path, thumbnails_dir: Path, thumbnail_width: int) -> list[RawPage]:
-        """Read `path` and return its pages. Thumbnails (if any) go in `thumbnails_dir`."""
+    def load(
+        self,
+        path: Path,
+        thumbnails_dir: Path,
+        thumbnail_width: int,
+        ocr: "OcrOptions | None" = None,
+    ) -> list[RawPage]:
+        """Read `path` and return its pages. Thumbnails (if any) go in `thumbnails_dir`.
+        ocr: read text inside images too (formats without images ignore it)."""
         ...
