@@ -28,3 +28,12 @@ uv run agent-apunts eval --answers       # + runs `ask` (local LLM, slow): abste
 ```
 Each run is saved to `data/eval/retrieval-<timestamp>.json` with the settings used, so runs before
 and after a change (cleaning, chunking, OCR, model) can be compared.
+
+## Compare two runs
+```bash
+uv run agent-apunts compare               # the two newest retrieval runs: before -> after
+uv run agent-apunts compare --kind answers
+uv run agent-apunts compare data/eval/retrieval-A.json data/eval/retrieval-B.json
+```
+It prints every metric with its change, the settings that differ between the runs (the explanation),
+and which questions were found only before (regressions: read them first) or only after.

@@ -4,12 +4,14 @@ Commands are thin: they load settings, take user_id from them and call library f
 so the same functions can later be called from FastAPI (D9) without going through the CLI.
 """
 
+import json
 from collections import Counter
 from collections.abc import Callable
 from pathlib import Path
 
 import typer
 from rich.console import Console
+from rich.markup import escape
 from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn, TimeElapsedColumn
 from rich.table import Table
 
@@ -108,7 +110,7 @@ def _list(title: str, items: list, style: str = "yellow", limit: int = 20) -> No
     console.print(f"[{style}]{title} ({len(items)}):[/{style}]")
     for item in items[:limit]:
         text = " -> ".join(item) if isinstance(item, tuple) else str(item)
-        console.print(f"  {text}")
+        console.print(f"  {escape(text)}")  # paths and values may contain [brackets]
     if len(items) > limit:
         console.print(f"  ... and {len(items) - limit} more")
 
@@ -633,6 +635,48 @@ def _evaluate_answers(s: Settings, golden, filter_subject: bool) -> None:
     )
     saved = evaluation.save_run(s, results, m.model_dump(), s.paths.eval_dir, kind="answers")
     console.print(f"[dim]Saved to {saved}[/dim]")
+
+
+@app.command()
+def compare(
+    before: str | None = typer.Argument(
+        None, help="Run file (data/eval/...). Default: 2nd newest."
+    ),
+    after: str | None = typer.Argument(None, help="Run file. Default: the newest."),
+    kind: str = typer.Option("retrieval", help="retrieval or answers (when picking defaults)."),
+) -> None:
+    """Compare two saved eval runs: metrics before/after, what changed, which questions moved."""
+    s = _settings()
+    if before is None or after is None:
+        runs = sorted(s.paths.eval_dir.glob(f"{kind}-*.json"))  # timestamped names sort by time
+        if len(runs) < 2:
+            console.print(f"Need two saved `{kind}` runs in {s.paths.eval_dir}: run `eval` twice.")
+            raise typer.Exit(1)
+        before_path, after_path = runs[-2], runs[-1]
+    else:
+        before_path, after_path = Path(before), Path(after)
+    try:
+        a, b = (json.loads(p.read_text(encoding="utf-8")) for p in (before_path, after_path))
+    except (OSError, ValueError) as e:
+        console.print(f"[red]Cannot read the runs: {e}[/red]")
+        raise typer.Exit(1) from e
+    c = evaluation.compare_runs(a, b)
+    console.print(f"before: {before_path.name}\nafter:  {after_path.name}")
+    table = Table("metric", "before", "after", "change")
+    for name, x, y in c.metrics:
+        delta = y - x
+        style = "green" if delta > 0 else "red" if delta < 0 else None
+        table.add_row(name, f"{x:.3f}", f"{y:.3f}", f"{delta:+.3f}", style=style)
+    console.print(table)
+    console.print(
+        "[dim]Higher is better except false_abstention, latency and counts of errors.[/dim]"
+    )
+    _list(
+        "what changed between the runs (setting: before -> after)",
+        [f"{k}: {x} -> {y}" for k, x, y in c.settings],
+    )
+    _list("questions found only AFTER the change", c.gained, "green")
+    _list("questions found only BEFORE the change (regressions: read these)", c.lost, "red")
 
 
 def _pct(value: float | None) -> str:

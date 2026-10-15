@@ -38,7 +38,8 @@ uv run agent-apunts doctor                 # all "ok" (the LLM line too)
 
 ```powershell
 uv run agent-apunts eval --sweep          # 📋 the tables: hit@k, MRR, abstention sweep
-uv run agent-apunts eval --hybrid         # 📋 compare with the line above
+uv run agent-apunts eval --hybrid         # 📋 then:
+uv run agent-apunts compare               # 📋 dense -> hybrid: metric changes, questions gained/lost
 uv run agent-apunts eval --answers        # 📋 GTX 1080 only (~20 x 10-30 s)
 git add eval/golden.yaml; git commit -m "eval: first golden set (20 questions)"; git push
 ```
@@ -71,5 +72,5 @@ Only when you want to use it (`cd $HOME\code\agent-apunts`, same branch):
 
 - Topic headers like "P5: Jerarquía de Memoria": built as an experiment, off by default. After the golden
   set: set `chunking.topic_in_header: true` in `config/settings.yaml`, `uv run agent-apunts ingest` (re-embeds
-  the documents that have one), `uv run agent-apunts eval` 📋; keep it on only if hit@k / MRR improve.
+  the documents that have one), `uv run agent-apunts eval`, then `uv run agent-apunts compare` 📋; keep it on only if hit@k / MRR improve.
 - Delete the local copy `testing/apunts_testing/` on this PC once OneDrive works here (TODO week 1).

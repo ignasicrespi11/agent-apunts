@@ -277,3 +277,24 @@ def test_eval_answers_end_to_end(fake_services, monkeypatch):
     assert "Abstention accuracy 100%" in result.output
     assert "100% of answers cite an expected page" in result.output
     assert list((fake_services / "data" / "eval").glob("answers-*.json"))
+
+
+def test_compare_needs_two_runs_then_compares_the_newest(fake_services):
+    import json as _json
+
+    result = runner.invoke(app, ["compare"])
+    assert result.exit_code == 1 and "run `eval` twice" in result.output
+
+    runs = fake_services / "data" / "eval"
+    runs.mkdir(parents=True)
+    for stamp, mrr in (("20261015T100000Z", 0.4), ("20261015T110000Z", 0.6)):
+        run = {
+            "settings": {"retrieval": {"hybrid": mrr > 0.5}},
+            "summary": {"overall": {"mrr": mrr}, "k": 5},
+            "results": [],
+        }
+        (runs / f"retrieval-{stamp}.json").write_text(_json.dumps(run), encoding="utf-8")
+    result = runner.invoke(app, ["compare"])
+    assert result.exit_code == 0, result.output
+    assert "overall.mrr" in result.output and "+0.200" in result.output
+    assert "retrieval.hybrid: False -> True" in result.output

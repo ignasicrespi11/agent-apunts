@@ -308,3 +308,61 @@ def answer_metrics(results: list[AnswerResult]) -> AnswerMetrics:
         uncited=sum(r.uncited for r in results if not r.abstained),
         mean_latency_s=round(sum(r.latency_ms for r in results) / n / 1000, 1) if n else 0.0,
     )
+
+
+# --- Comparing two saved runs (before/after a change) -------------------------------------------
+
+
+def _flatten(data: object, prefix: str = "") -> dict[str, object]:
+    """{"a": {"b": 1}} -> {"a.b": 1}: nested settings and summaries as comparable rows."""
+    if not isinstance(data, dict):
+        return {prefix: data}
+    flat: dict[str, object] = {}
+    for key, value in data.items():
+        flat |= _flatten(value, f"{prefix}.{key}" if prefix else str(key))
+    return flat
+
+
+class RunComparison(BaseModel):
+    metrics: list[tuple[str, float, float]]  # (name, before, after); after - before is the delta
+    settings: list[tuple[str, object, object]]  # what changed between the runs: the explanation
+    gained: list[str]  # answerable questions found in the top-k only after the change
+    lost: list[str]  # ... found only before: read these first, they are the regressions
+
+
+def compare_runs(before: dict, after: dict) -> RunComparison:
+    """Two runs saved by save_run (same kind). The breakdown per language/subject/tag is left out:
+    with 20 questions its groups are too small to compare; per-question changes say more."""
+
+    def numbers(run: dict) -> dict[str, float]:
+        summary = {k: v for k, v in run.get("summary", {}).items() if k != "breakdown"}
+        return {
+            k: float(v)
+            for k, v in _flatten(summary).items()
+            if isinstance(v, int | float) and not isinstance(v, bool)
+        }
+
+    a, b = numbers(before), numbers(after)
+    metrics = [(name, a[name], b[name]) for name in a if name in b]
+    sa, sb = _flatten(before.get("settings", {})), _flatten(after.get("settings", {}))
+    for key in ("hybrid", "k", "filter_subject", "golden"):  # run options live in the summary
+        sa[key], sb[key] = before.get("summary", {}).get(key), after.get("summary", {}).get(key)
+    changed = [
+        (k, sa.get(k), sb.get(k)) for k in sorted(set(sa) | set(sb)) if sa.get(k) != sb.get(k)
+    ]
+
+    def found(run: dict) -> set[str]:
+        k = run.get("summary", {}).get("k", 5)
+        return {
+            r["id"]
+            for r in run.get("results", [])
+            if r.get("answerable", True) and r.get("rank") is not None and r["rank"] <= k
+        }
+
+    hits_a, hits_b = found(before), found(after)
+    return RunComparison(
+        metrics=metrics,
+        settings=changed,
+        gained=sorted(hits_b - hits_a),
+        lost=sorted(hits_a - hits_b),
+    )

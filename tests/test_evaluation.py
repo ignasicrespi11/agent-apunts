@@ -166,3 +166,32 @@ def test_answer_metrics():
     assert m.citation_hit == 0.5  # 1 of the 2 answered answerable questions
     assert m.citation_precision == round(1 / 3, 3)
     assert m.uncited == 1 and m.mean_latency_s == 2.0
+
+
+def test_compare_runs_shows_deltas_settings_and_moved_questions():
+    from agent_apunts.evaluation import compare_runs
+
+    def run(hybrid, mrr, ranks, top_k=5):
+        return {
+            "settings": {"retrieval": {"hybrid": hybrid, "top_k": top_k}, "llm": {"model": "m"}},
+            "summary": {
+                "overall": {"questions": 3, "hit_at": {"5": 0.5}, "mrr": mrr},
+                "breakdown": {"language": {"ca": {"mrr": 1.0}}},  # ignored: groups too small
+                "abstention": {"threshold": 0.45, "balanced": 0.8},
+                "k": 5,
+                "hybrid": hybrid,
+            },
+            "results": [
+                {"id": qid, "answerable": True, "rank": rank} for qid, rank in ranks.items()
+            ]
+            + [{"id": "none", "answerable": False, "rank": None}],
+        }
+
+    before = run(False, 0.40, {"q1": 1, "q2": None, "q3": 6})
+    after = run(True, 0.55, {"q1": None, "q2": 2, "q3": 3})
+    c = compare_runs(before, after)
+    assert ("overall.mrr", 0.40, 0.55) in c.metrics
+    assert all(not name.startswith("breakdown") for name, _, _ in c.metrics)
+    assert ("retrieval.hybrid", False, True) in c.settings and ("hybrid", False, True) in c.settings
+    assert all(k != "llm.model" for k, _, _ in c.settings)  # unchanged settings are not listed
+    assert c.gained == ["q2", "q3"] and c.lost == ["q1"]
