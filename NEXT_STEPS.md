@@ -4,7 +4,8 @@ What is left to do **on the machines**, in order. Claude can't do these: they ne
 a GPU. Paste the output of every step marked 📋 into the next Claude session; it turns them into settings,
 numbers in `docs/weekly/` and decisions. `TODO.md` keeps the plan; this file is the checklist.
 
-Branch everywhere: `claude/vibrant-goodall-5rmyu2` (= PR #3 + everything since; it will be merged as PR #3).
+Branch everywhere: `claude/vibrant-goodall-5rmyu2` = PR #3 + two proposed features that are off unless you ask for
+them (D38 agent: `ask --agent`; D39 OCR: `extraction.ocr.enabled`). They go in a second PR after #3 is merged.
 
 ## 1. GTX 1080 PC (everything installed) — do this first
 
@@ -75,7 +76,8 @@ Only when you want to use it (`cd $HOME\code\agent-apunts`, same branch):
 
 ## 5. GitHub
 
-- Read the PR #3 description and merge it on GitHub when step 1 works (Claude updates the PR first).
+- Read the PR #3 description and merge it on GitHub when step 1 works.
+- Then ask Claude for the follow-up PR (D38 agent + D39 OCR, from `claude/vibrant-goodall-5rmyu2`).
 - Then delete the old branches (`claude/serene-brahmagupta-md8g0y`, `feat/dev-environment`) in GitHub's branch list.
 
 ## 6. Experiments, once the golden set exists (each: change, `ingest`, `eval`, `compare` 📋)
