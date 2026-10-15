@@ -69,9 +69,35 @@ def test_numbers_repeated_in_tables_are_kept():
     assert _clean(texts).pages == texts
 
 
-def test_repeated_short_label_is_removed_and_reported():
-    # Known trade-off (D27): a label repeated on most pages is treated as boilerplate. It shows up
-    # in the audit list, which is how a wrong removal gets noticed.
-    texts = [f"Exercise {i}\nSolution:\nanswer {i * 7}" for i in range(1, 5)]
+def test_solution_labels_are_kept():
+    # Real corpus (IS exams): "Solució:" on most pages was removed as boilerplate, so chunks lost
+    # where each solution starts. Short "Word:" labels are structure, not boilerplate.
+    texts = [f"Exercici {i}\nSolució:\nresposta {i * 7}" for i in range(1, 5)]
     result = _clean(texts)
-    assert "Solution:" in result.removed
+    assert result.pages == texts and not result.removed
+
+
+def test_form_lines_with_colons_are_still_boilerplate():
+    # The exam header form has colons but is not a bare label: still removed.
+    form = "Nombre:.............. NIU:........ Nota:......"
+    texts = [f"{form}\nPregunta {i}" for i in range(1, 5)]
+    assert _clean(texts).removed == {form: 4}
+
+
+def test_topic_line_picks_the_running_header():
+    from collections import Counter
+
+    from agent_apunts.ingestion.cleaning import topic_line
+
+    removed = Counter(
+        {
+            PAGE_NUMBER_LABEL: 12,
+            "Nombre:.................... NIU:........ Nota:......": 10,  # form line: mostly dots
+            "UAB": 10,  # one word
+            "Arquitectura de Computadors 2025-26": 9,  # contains the subject name
+            "P5: Jerarquía de Memoria": 8,
+            "Soluciones a Problemas": 2,
+        }
+    )
+    assert topic_line(removed, avoid=("Arquitectura de Computadors",)) == "P5: Jerarquía de Memoria"
+    assert topic_line(Counter({PAGE_NUMBER_LABEL: 3})) is None
