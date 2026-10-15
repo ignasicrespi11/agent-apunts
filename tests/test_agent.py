@@ -143,3 +143,27 @@ def test_low_scores_are_never_shown_to_the_model(settings, indexed):
 def test_answer_without_any_tool_is_flagged(settings, indexed):
     answer = _run("Hola?", settings, indexed, ScriptedChat("Hola! Sóc un model."))
     assert not answer.abstained and answer.uncited and answer.steps == []
+
+
+def _with_budget(settings, words):
+    s = _low_min_score(settings)
+    return s.model_copy(update={"agent": s.agent.model_copy(update={"max_source_words": words})})
+
+
+def test_source_budget_keeps_the_prompt_inside_the_context(settings, indexed):
+    embedder, store = indexed
+    tools = NoteTools(USER, _with_budget(settings, 60), embedder, store)
+    text, summary = tools.run(ToolCall("search_notes", {"query": "patró observador caché"}))
+    assert len(tools.sources) == 1  # the 2nd chunk would pass 60 words
+    assert "Source budget for this question reached" in text
+    again, again_summary = tools.run(ToolCall("search_notes", {"query": "memoria caché"}))
+    assert "budget" in again and len(tools.sources) == 1
+
+
+def test_a_chunk_already_shown_is_not_sent_again(settings, indexed):
+    embedder, store = indexed
+    tools = NoteTools(USER, _low_min_score(settings), embedder, store)
+    first, _ = tools.run(ToolCall("search_notes", {"query": "patró observador"}))
+    second, summary = tools.run(ToolCall("search_notes", {"query": "patró observador"}))
+    assert "(already shown above)" in second and len(second) < len(first) / 3
+    assert summary.startswith(f"{len(tools.sources)} sources")

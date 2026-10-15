@@ -121,6 +121,7 @@ class NoteTools:
     store: VectorStore
     sources: list[Source] = field(default_factory=list)
     _numbers: dict[str, int] = field(default_factory=dict)
+    _words_shown: int = 0  # source words sent to the model so far (agent.max_source_words)
 
     def run(self, call: ToolCall) -> tuple[str, str]:
         """(text for the model, short summary for the log). Bad arguments come back as text the
@@ -218,29 +219,42 @@ class NoteTools:
     # --- helpers --------------------------------------------------------------------------------
 
     def _numbered(self, hits: list[Hit]) -> tuple[str, str]:
+        """Number the hits globally and render them for the model, within the word budget.
+        A chunk already shown keeps its number and is not sent again (it is in the context)."""
+        budget = self.settings.agent.max_source_words
         blocks, numbers = [], []
         for hit in hits:
-            n = self._numbers.get(hit.chunk_id)
-            if n is None:
-                n = len(self.sources) + 1
-                self._numbers[hit.chunk_id] = n
-                p = hit.payload
-                self.sources.append(
-                    Source(
-                        number=n,
-                        chunk_id=hit.chunk_id,
-                        score=round(hit.score, 4),
-                        rel_path=p.get("rel_path", "?"),
-                        page=p.get("page", 0),
-                        subject=p.get("subject"),
-                        title=p.get("title"),
-                    )
-                )
-            numbers.append(n)
             p = hit.payload
-            blocks.append(
-                f"[{n}] {p.get('header', '')} (page {p.get('page')})\n{p.get('text', '')}"
+            n = self._numbers.get(hit.chunk_id)
+            if n is not None:
+                blocks.append(f"[{n}] (already shown above)")
+                numbers.append(n)
+                continue
+            text = p.get("text", "")
+            words = len(text.split())
+            if self._words_shown + words > budget:
+                blocks.append(
+                    "Source budget for this question reached: answer with the sources above."
+                )
+                break
+            self._words_shown += words
+            n = len(self.sources) + 1
+            self._numbers[hit.chunk_id] = n
+            self.sources.append(
+                Source(
+                    number=n,
+                    chunk_id=hit.chunk_id,
+                    score=round(hit.score, 4),
+                    rel_path=p.get("rel_path", "?"),
+                    page=p.get("page", 0),
+                    subject=p.get("subject"),
+                    title=p.get("title"),
+                )
             )
+            numbers.append(n)
+            blocks.append(f"[{n}] {p.get('header', '')} (page {p.get('page')})\n{text}")
+        if not numbers:
+            return blocks[0] if blocks else "No sources.", "0 sources (budget reached)"
         summary = f"{len(numbers)} sources " + " ".join(f"[{n}]" for n in numbers)
         return "\n\n".join(blocks), summary
 

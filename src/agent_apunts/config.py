@@ -148,7 +148,11 @@ class AgentSettings(_Strict):
     """Limits of the tool-using agent (D38, proposed): a 7B local model can loop or over-fetch."""
 
     max_tool_calls: int = Field(default=4, gt=0, le=10)
-    max_chunks: int = Field(default=8, gt=0, le=20)  # per search_notes call
+    max_chunks: int = Field(default=6, gt=0, le=20)  # per search_notes call
+    # Words of source text shown to the model per question, across all tool calls. 4 searches x
+    # 6 chunks x ~450 words would be ~17k tokens, twice llm.num_ctx (8192): Ollama would silently
+    # cut the rules or the first sources. 2,500 words ~ 4k tokens leaves room for the rest.
+    max_source_words: int = Field(default=2500, gt=0)
 
 
 class Source(_Strict):

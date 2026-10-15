@@ -85,7 +85,8 @@ llm:
 # Tool-using agent (D38, proposed; `ask --agent`): hard limits for a small local model.
 agent:
   max_tool_calls: 4
-  max_chunks: 8
+  max_chunks: 6  # per search
+  max_source_words: 2500  # source text per question across all tool calls: must fit llm.num_ctx
 
 # Metadata auto-detection (D36, proposed). A document is assigned to the subject whose centroid
 # (mean vector of its labelled documents) is closest; the guess counts as confident only if it
