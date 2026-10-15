@@ -4,8 +4,10 @@ Current: **Phase 1 · Week 3 (13–19 Oct 2026)**. Weeks 2–4 code is built (PR
 Real corpus: 108 docs extracted/chunked (2,366 chunks); first index interrupted at 943 points on Omarchy (resumable).
 
 **Hands-on steps for Ignasi (GTX 1080 PC first, golden set, Omarchy, PC 2): [`NEXT_STEPS.md`](NEXT_STEPS.md).**
-Branch everywhere: `claude/vibrant-goodall-5rmyu2` (PR #3 + everything since; pushed to the PR #3 branch 2026-10-15).
-All review decisions D30–D37 accepted; D27 revised ("Solució:" labels kept, chunker v2).
+Branch everywhere: `claude/vibrant-goodall-5rmyu2`. PR #3 (`claude/serene-brahmagupta-md8g0y`) holds everything up to
+2026-10-15 `1162394` (D30–D37 accepted, D27 revised: "Solució:" labels kept). On top, only on this branch, two proposed
+features for a follow-up PR after #3 is merged: **D38 agent** (`ask --agent`, `eval --answers --agent`) and **D39 OCR**
+(off by default). Both off unless asked for, so using this branch changes nothing in the normal pipeline.
 
 ## Corpus findings (2026-09-29, labelled set)
 - 110 PDFs, 2,087 pages. No encrypted/broken files.
@@ -78,11 +80,11 @@ All review decisions D30–D37 accepted; D27 revised ("Solució:" labels kept, c
 ## Phase 2 — Agent, interface, retrieval (2 Nov – 22 Dec)
 - [ ] Eval baseline (hit@k, MRR, abstention) on 30–50 questions
 - [ ] Claude API LLMClient; compare vs Ollama on the eval
-- [ ] Vision enrichment for image-heavy slides (D14), measured
+- [ ] Vision enrichment for image-heavy slides (D14), measured (OCR part built as D39, off by default: measure it first)
 - [ ] Near-duplicate grouping + collapse results by `group_id` (D19)
 - [ ] Hybrid search (dense + sparse) and reranking; measure the delta
 - [ ] Agent design session (Opus): discuss the proposal in `docs/design/phase-2-agent.md` (tools, loop limits, eval plan, API/UI order)
-- [ ] Agent implementation + tests
+- [x] Agent implementation + tests (D38 proposed, built 2026-10-15 behind `ask --agent`; to be judged with `eval --answers --agent`)
 - [ ] FastAPI + Streamlit UI, including upload feeding the same pipeline; show cited slide thumbnails
 - [ ] Folder watcher on `apunts/` (auto-ingest new PDFs); confirm-metadata step for low-confidence detections
 - [ ] Query/response logging with user_id; faithfulness eval (LLM judge)
@@ -120,3 +122,4 @@ All review decisions D30–D37 accepted; D27 revised ("Solució:" labels kept, c
 - 2026-10-08: (Omarchy, real data) chunk + images on the real corpus (2,366 chunks; Disseny 31% content in images); fixed LaTeX accents (loader v6) and a search traceback; Ollama + bge-m3 installed, doctor green. Index/detect/search moved to the next session (context full).
 - 2026-10-09: (S04, cloud + Omarchy) Reviewed and accepted D30–D33 (uncited answers flagged, not blocked). First real `ingest`: re-extract (loader v6) + chunk identical to 10-08 (2,059 pages, 2,366 chunks); index interrupted at 943 points after 32.5 min (~29 chunks/min with bge-m3 on CPU → ~80 min for the full corpus; resumable). Added an index progress bar (it looked hung). 205 tests.
 - 2026-10-10/11: (S04, Windows PC 2 + autonomous) PC 2 blocked: Docker needs SVM in the BIOS, Ollama never installed → `scripts/qdrant-windows.ps1` (no-Docker Qdrant, verified with the 1.19.1 binary), setup checks virtualization/AMD GPU, `doctor` shows GPU vs CPU. Third review of PR #3 (5 fixes, each with a test): prune brake on mass deletions, detect progress + resumable cache, LLM token counts + truncation warning, loader v7 (LaTeX ´ı, Catalan apostrophes), eval flags impossible pages; detect also reports accuracy without near-duplicates. week-02 summary completed (eval numbers pending). 220 tests. Couldn't test with a real model in the cloud (Ollama registry/Hugging Face blocked).
+- 2026-10-15: (S04, GTX 1080 PC + cloud) Ignasi delegated the pending decisions: D34–D37 accepted, D27 revised ("Solució:" labels kept, chunker v2), topic-in-header experiment (off). PR #3 updated (fast-forward) and its description rewritten. `NEXT_STEPS.md` = hands-on checklist per machine. New: `compare` (two eval runs), `documents`, Ollama timeouts/crashes as messages, D38 agent (`ask --agent`, `eval --answers --agent`, per-tag metrics) and D39 OCR (Tesseract via PyMuPDF, self-test, off) on the branch only. 255 tests.
