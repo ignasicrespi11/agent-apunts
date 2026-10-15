@@ -235,6 +235,8 @@ class AnswerResult(BaseModel):
     uncited: bool
     latency_ms: int
     answer: str
+    tags: list[str] = Field(default_factory=list)
+    tool_calls: int = 0  # agent mode (D38): how many tools it used
 
 
 class AnswerMetrics(BaseModel):
@@ -260,16 +262,21 @@ def run_answers(
     settings: Settings,
     embedder: Embedder,
     store: VectorStore,
-    llm,  # LLMClient (imported lazily to keep this module free of the LLM for retrieval runs)
+    llm,  # LLMClient, or ChatClient with agent=True (imported lazily: retrieval runs need none)
     filter_subject: bool = False,
     on_answer=None,  # progress callback: answers take seconds each
+    agent: bool = False,  # run the tool-using agent (D38) instead of single-shot ask (D32)
 ) -> list[AnswerResult]:
+    from agent_apunts.agent import run_agent
     from agent_apunts.rag import ask
 
     results = []
     for q in golden.questions:
         subject = q.subject if filter_subject else None
-        a = ask(q.question, user_id, settings, embedder, store, llm, subject=subject)
+        if agent:  # the agent picks its own filters: filter_subject doesn't apply
+            a = run_agent(q.question, user_id, settings, embedder, store, llm)
+        else:
+            a = ask(q.question, user_id, settings, embedder, store, llm, subject=subject)
         cited = [s for s in a.sources if s.number in a.cited]
         results.append(
             AnswerResult(
@@ -282,11 +289,20 @@ def run_answers(
                 uncited=a.uncited,
                 latency_ms=a.latency_ms,
                 answer=a.answer,
+                tags=q.tags,
+                tool_calls=len(a.steps),
             )
         )
         if on_answer:
             on_answer(results[-1])
     return results
+
+
+def answer_metrics_by_tag(results: list[AnswerResult]) -> dict[str, AnswerMetrics]:
+    """Per tag, e.g. "multi-step": the agent is worth keeping only if it wins there without
+    losing on the simple questions (docs/design/phase-2-agent.md)."""
+    tags = sorted({t for r in results for t in r.tags})
+    return {t: answer_metrics([r for r in results if t in r.tags]) for t in tags}
 
 
 def answer_metrics(results: list[AnswerResult]) -> AnswerMetrics:
@@ -345,7 +361,7 @@ def compare_runs(before: dict, after: dict) -> RunComparison:
     a, b = numbers(before), numbers(after)
     metrics = [(name, a[name], b[name]) for name in a if name in b]
     sa, sb = _flatten(before.get("settings", {})), _flatten(after.get("settings", {}))
-    for key in ("hybrid", "k", "filter_subject", "golden"):  # run options live in the summary
+    for key in ("hybrid", "k", "filter_subject", "golden", "mode"):  # run options: in the summary
         sa[key], sb[key] = before.get("summary", {}).get(key), after.get("summary", {}).get(key)
     changed = [
         (k, sa.get(k), sb.get(k)) for k in sorted(set(sa) | set(sb)) if sa.get(k) != sb.get(k)

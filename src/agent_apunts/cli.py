@@ -569,6 +569,9 @@ def evaluate(
         help="Also run `ask` on every question with the local LLM (slow): abstention and "
         "citation quality.",
     ),
+    agent: bool = typer.Option(
+        False, "--agent", help="With --answers: run the tool-using agent instead of ask (D38)."
+    ),
 ) -> None:
     """Measure retrieval on the golden set: hit@k, MRR, per language/subject/tag (D34)."""
     s = _with_hybrid(_settings(), hybrid)
@@ -665,20 +668,26 @@ def evaluate(
     saved = evaluation.save_run(s, results, summary, s.paths.eval_dir)
     console.print(f"[dim]Saved to {saved}[/dim]")
     if answers:
-        _evaluate_answers(s, golden, filter_subject)
+        _evaluate_answers(s, golden, filter_subject, agent)
 
 
-def _evaluate_answers(s: Settings, golden, filter_subject: bool) -> None:
-    console.rule(f"answers ({s.llm.model}, {len(golden.questions)} questions)")
+def _evaluate_answers(s: Settings, golden, filter_subject: bool, agent: bool = False) -> None:
+    mode = "agent" if agent else "rag"
+    console.rule(f"answers, {mode} ({s.llm.model}, {len(golden.questions)} questions)")
 
     def progress(r) -> None:
         state = f"abstained ({r.reason})" if r.abstained else f"cited {len(r.cited)}"
-        console.print(f"  {r.id}: {state}, {r.latency_ms / 1000:.1f} s")
+        tools = f", {r.tool_calls} tool calls" if agent else ""
+        console.print(f"  {r.id}: {state}{tools}, {r.latency_ms / 1000:.1f} s")
 
+    llm = make_chat(s) if agent else make_llm(s)
     try:
         results = evaluation.run_answers(
-            golden, s.user.id, s, make_embedder(s), _store(s), make_llm(s), filter_subject, progress
+            golden, s.user.id, s, make_embedder(s), _store(s), llm, filter_subject, progress, agent
         )
+    except ToolsNotSupportedError as e:
+        console.print(f"[red]{s.llm.model} can't call tools: the agent can't be evaluated.[/red]")
+        raise typer.Exit(1) from e
     except (EmbeddingError, LLMError) as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1) from e
@@ -691,7 +700,24 @@ def _evaluate_answers(s: Settings, golden, filter_subject: bool) -> None:
         f"{m.citation_precision:.0%} of citations are expected pages; {m.uncited} uncited answers\n"
         f"Mean latency {m.mean_latency_s} s"
     )
-    saved = evaluation.save_run(s, results, m.model_dump(), s.paths.eval_dir, kind="answers")
+    by_tag = evaluation.answer_metrics_by_tag(results)
+    if by_tag:
+        table = Table("tag", "questions", "abstention ok", "citation hit", "uncited")
+        for tag, tm in by_tag.items():
+            table.add_row(
+                tag,
+                str(tm.questions),
+                f"{tm.abstention_accuracy:.0%}",
+                f"{tm.citation_hit:.0%}",
+                str(tm.uncited),
+            )
+        console.print(table)
+    summary = {
+        **m.model_dump(),
+        "mode": mode,
+        "by_tag": {t: tm.model_dump() for t, tm in by_tag.items()},
+    }
+    saved = evaluation.save_run(s, results, summary, s.paths.eval_dir, kind="answers")
     console.print(f"[dim]Saved to {saved}[/dim]")
 
 

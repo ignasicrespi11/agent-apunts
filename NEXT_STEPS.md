@@ -49,6 +49,8 @@ uv run agent-apunts eval --sweep          # 📋 the tables: hit@k, MRR, abstent
 uv run agent-apunts eval --hybrid         # 📋 then:
 uv run agent-apunts compare               # 📋 dense -> hybrid: metric changes, questions gained/lost
 uv run agent-apunts eval --answers        # 📋 GTX 1080 only (~20 x 10-30 s)
+uv run agent-apunts eval --answers --agent   # 📋 GTX 1080: the agent on the same questions, then
+uv run agent-apunts compare --kind answers   # 📋 ask -> agent
 git add eval/golden.yaml; git commit -m "eval: first golden set (20 questions)"; git push
 ```
 `eval` lists documents it doesn't know and pages a document doesn't have: fix those first.

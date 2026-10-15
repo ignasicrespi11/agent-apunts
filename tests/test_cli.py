@@ -356,3 +356,38 @@ def test_ask_agent_falls_back_when_the_model_has_no_tools(fake_services, monkeyp
     assert result.exit_code == 0, result.output
     assert "single-shot ask instead" in result.output
     assert "Notifica els canvis [1]." in result.output  # ScriptedLLM from fake_services
+
+
+def test_eval_answers_with_the_agent_reports_per_tag(fake_services, monkeypatch):
+    from agent_apunts import cli
+    from tests.fakes import ScriptedChat
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide"])
+    settings_file = fake_services / "config" / "settings.yaml"
+    settings_file.write_text(settings_file.read_text().replace("min_score: 0.45", "min_score: 0.0"))
+    assert runner.invoke(app, ["ingest"]).exit_code == 0
+    chat = ScriptedChat(
+        [("search_notes", {"query": "observador", "subject": "disseny_software"})],
+        "Notifica [1].",
+        "NOT_FOUND",
+    )
+    monkeypatch.setattr(cli, "make_chat", lambda s: chat)
+    (fake_services / "eval").mkdir()
+    (fake_services / "eval" / "golden.yaml").write_text(
+        "questions:\n"
+        "  - id: observer\n"
+        "    question: patró observador\n"
+        "    language: ca\n"
+        "    tags: [multi-step]\n"
+        "    expected: [{document: disseny_software/theory/patrons.pdf, pages: [1]}]\n"
+        "  - {id: none, question: mundial, language: ca, answerable: false}\n",
+        encoding="utf-8",
+    )
+    result = runner.invoke(app, ["eval", "--answers", "--agent"])
+    assert result.exit_code == 0, result.output
+    assert "answers, agent" in result.output and "1 tool calls" in result.output
+    assert "multi-step" in result.output and "Abstention accuracy 100%" in result.output
+    (saved,) = (fake_services / "data" / "eval").glob("answers-*.json")
+    assert '"mode": "agent"' in saved.read_text(encoding="utf-8")
