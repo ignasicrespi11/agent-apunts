@@ -33,8 +33,9 @@ uv run agent-apunts doctor                 # all "ok" (the LLM line too)
 ## 2. Golden set (any machine, ~1 hour, the most valuable step)
 
 `copy eval\golden.example.yaml eval\golden.yaml`, then write **20 questions** following `eval/README.md`
-(~6 per subject, ca/es/en mixed, 3–4 unanswerable, some tagged `code-image`). Use
-`uv run agent-apunts inspect <part of a file name> --page N` to find the page numbers. Then:
+(~6 per subject, ca/es/en mixed, 3–4 unanswerable, some tagged `code-image`).
+`uv run agent-apunts documents --subject disseny_software` lists the exact paths to copy and their page
+counts; `uv run agent-apunts inspect <part of a file name> --page N` shows a page's text. Then:
 
 ```powershell
 uv run agent-apunts eval --sweep          # 📋 the tables: hit@k, MRR, abstention sweep

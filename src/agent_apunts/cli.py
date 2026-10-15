@@ -170,6 +170,41 @@ def extract(
 
 
 @app.command()
+def documents(
+    subject: str | None = typer.Option(None, help="Only this subject (folder name)."),
+) -> None:
+    """List every document: its path as eval/golden.yaml expects it, pages, languages, state."""
+    s = _settings()
+    with Manifest(s.paths.manifest) as manifest:
+        records = manifest.documents(s.user.id)
+        done = {
+            r.doc_id: [
+                st
+                for st in ("extract", "chunk", "index")
+                if manifest.stage(s.user.id, r.doc_id, st)
+            ]
+            for r in records
+        }
+    if subject is not None:
+        records = [r for r in records if r.metadata and r.metadata.subject == subject]
+    if not records:
+        console.print("No documents. Run `ingest` (or check --subject).")
+        raise typer.Exit(1)
+    table = Table("document (rel_path)", "pages", "languages", "done")
+    for r in records:
+        extracted = processed_path(s, s.user.id, r.doc_id)
+        doc = read_json(extracted) if extracted.is_file() else None
+        table.add_row(
+            escape(r.rel_path),
+            str(len(doc.pages)) if doc else "-",
+            ", ".join(doc.languages) if doc else "-",
+            " ".join(done[r.doc_id]) or "registered",
+        )
+    console.print(table)
+    console.print(f"{len(records)} documents. Pages: `inspect <part of the name> --page N`.")
+
+
+@app.command()
 def inspect(
     query: str = typer.Argument(help="Start of the doc_id, or part of the file path."),
     page: int | None = typer.Option(None, help="Show the full text of this page."),

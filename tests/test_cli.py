@@ -298,3 +298,17 @@ def test_compare_needs_two_runs_then_compares_the_newest(fake_services):
     assert result.exit_code == 0, result.output
     assert "overall.mrr" in result.output and "+0.200" in result.output
     assert "retrieval.hybrid: False -> True" in result.output
+
+
+def test_documents_lists_paths_pages_and_state(fake_services):
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide", "a4"])
+    make_pdf(corpus / "informacio_i_seguretat" / "exams" / "e.pdf", ["a4"])
+    assert runner.invoke(app, ["ingest"]).exit_code == 0
+
+    result = runner.invoke(app, ["documents", "--subject", "disseny_software"])
+    assert result.exit_code == 0, result.output
+    assert "disseny_software/theory/patrons.pdf" in result.output
+    assert "extract chunk index" in result.output and "e.pdf" not in result.output
