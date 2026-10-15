@@ -87,6 +87,9 @@ class ChunkingSettings(_Strict):
     max_words: int = Field(gt=0)
     target_words: int = Field(gt=0)
     min_words: int = Field(ge=0)
+    # Experiment: put the document's removed running header ("P5: Jerarquía de Memoria") in
+    # every chunk header. Off until `eval` shows it helps (changing it re-chunks and re-embeds).
+    topic_in_header: bool = False
 
     @model_validator(mode="after")
     def _sizes_are_ordered(self) -> ChunkingSettings:

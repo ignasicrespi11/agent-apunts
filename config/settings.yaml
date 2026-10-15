@@ -44,6 +44,9 @@ chunking:
   max_words: 450
   target_words: 350
   min_words: 5
+  # Experiment (off): add the document's running header removed by cleaning ("P5: Jerarquía de
+  # Memoria") to every chunk header. Turn on, `ingest`, `eval`: keep it only if hit@k improves.
+  topic_in_header: false
 
 # Stage 5, INDEX (D28). The SAME model must embed chunks and queries: the name and dimension are
 # also stored in the Qdrant collection, and indexing refuses to mix models.

@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 from agent_apunts.config import Settings
 from agent_apunts.ingestion.chunking import count_words, split_text
-from agent_apunts.ingestion.cleaning import clean_pages
+from agent_apunts.ingestion.cleaning import clean_pages, topic_line
 from agent_apunts.ingestion.extract import STAGE as EXTRACT_STAGE
 from agent_apunts.ingestion.extract import ExtractedDocument, processed_path, read_json
 from agent_apunts.ingestion.manifest import DocumentRecord, Manifest
@@ -96,11 +96,19 @@ def _subject_name(record: DocumentRecord, settings: Settings) -> str | None:
     return None
 
 
-def _header(record: DocumentRecord, settings: Settings, title: str | None, page: int) -> str:
+def _header(
+    record: DocumentRecord,
+    settings: Settings,
+    title: str | None,
+    page: int,
+    topic: str | None = None,
+) -> str:
     parts = []
     if subject := _subject_name(record, settings):
         parts.append(subject)
     parts.append(_document_label(record.rel_path))
+    if topic and topic != title:
+        parts.append(topic)
     parts.append(title or f"p. {page}")
     return " · ".join(parts)
 
@@ -118,6 +126,9 @@ def chunk_document(
         cl.repeated_line_min_pages,
         cl.repeated_line_max_chars,
     )
+    topic = None
+    if ch.topic_in_header:
+        topic = topic_line(cleaned.removed, avoid=(_subject_name(record, settings) or "",))
     chunks: list[Chunk] = []
     for page, text in zip(doc.pages, cleaned.pages, strict=True):
         if count_words(text) < ch.min_words:
@@ -131,7 +142,7 @@ def chunk_document(
                     page=page.number,
                     part=part,
                     title=page.title,
-                    header=_header(record, settings, page.title, page.number),
+                    header=_header(record, settings, page.title, page.number, topic),
                     text=piece,
                     word_count=count_words(piece),
                     language=page.language,

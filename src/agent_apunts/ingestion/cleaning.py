@@ -82,3 +82,26 @@ def clean_pages(
         cleaned = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
         result.pages.append(cleaned)
     return result
+
+
+def topic_line(removed: Counter[str], avoid: tuple[str, ...] = ()) -> str | None:
+    """The most repeated removed line that reads like a topic ("P5: Jerarquía de Memoria"), for
+    the chunk header when chunking.topic_in_header is on (an experiment, measured with eval).
+
+    Running headers are removed as boilerplate because they are on every page, yet they say what
+    the whole document is about: in the header (embedded once per chunk, D26) they add context
+    instead of noise. Skipped: page numbers, single words, form lines ("Nombre:..... NIU:....",
+    mostly dots), and lines containing an `avoid` text (the subject name, already in the header).
+    """
+    for line, _ in removed.most_common():
+        if line == PAGE_NUMBER_LABEL:
+            continue
+        visible = [c for c in line if not c.isspace()]
+        letters = sum(c.isalpha() for c in visible)
+        words = [w for w in line.split() if any(c.isalpha() for c in w)]
+        if len(words) < 2 or letters < 0.6 * len(visible):
+            continue
+        if any(a and a.lower() in line.lower() for a in avoid):
+            continue
+        return line
+    return None

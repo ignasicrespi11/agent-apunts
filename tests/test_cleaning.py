@@ -82,3 +82,22 @@ def test_form_lines_with_colons_are_still_boilerplate():
     form = "Nombre:.............. NIU:........ Nota:......"
     texts = [f"{form}\nPregunta {i}" for i in range(1, 5)]
     assert _clean(texts).removed == {form: 4}
+
+
+def test_topic_line_picks_the_running_header():
+    from collections import Counter
+
+    from agent_apunts.ingestion.cleaning import topic_line
+
+    removed = Counter(
+        {
+            PAGE_NUMBER_LABEL: 12,
+            "Nombre:.................... NIU:........ Nota:......": 10,  # form line: mostly dots
+            "UAB": 10,  # one word
+            "Arquitectura de Computadors 2025-26": 9,  # contains the subject name
+            "P5: Jerarquía de Memoria": 8,
+            "Soluciones a Problemas": 2,
+        }
+    )
+    assert topic_line(removed, avoid=("Arquitectura de Computadors",)) == "P5: Jerarquía de Memoria"
+    assert topic_line(Counter({PAGE_NUMBER_LABEL: 3})) is None

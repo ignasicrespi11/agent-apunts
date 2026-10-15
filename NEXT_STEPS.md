@@ -69,6 +69,7 @@ Only when you want to use it (`cd $HOME\code\agent-apunts`, same branch):
 
 ## 6. Still yours to decide (no rush)
 
-- Topic headers like "P5: Jerarquía de Memoria" are removed as boilerplate. Claude's proposal: an
-  experiment (`chunking.topic_in_header`, off by default) measured with `eval` once the golden set exists.
+- Topic headers like "P5: Jerarquía de Memoria": built as an experiment, off by default. After the golden
+  set: set `chunking.topic_in_header: true` in `config/settings.yaml`, `uv run agent-apunts ingest` (re-embeds
+  the documents that have one), `uv run agent-apunts eval` 📋; keep it on only if hit@k / MRR improve.
 - Delete the local copy `testing/apunts_testing/` on this PC once OneDrive works here (TODO week 1).
