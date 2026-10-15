@@ -135,6 +135,13 @@ class RetrievalSettings(_Strict):
     hybrid: bool
 
 
+class AgentSettings(_Strict):
+    """Limits of the tool-using agent (D38, proposed): a 7B local model can loop or over-fetch."""
+
+    max_tool_calls: int = Field(default=4, gt=0, le=10)
+    max_chunks: int = Field(default=8, gt=0, le=20)  # per search_notes call
+
+
 class Source(_Strict):
     """A folder documents are read from.
 
@@ -160,6 +167,7 @@ class Settings(_Strict):
     retrieval: RetrievalSettings
     detection: DetectionSettings
     llm: LLMSettings
+    agent: AgentSettings = AgentSettings()
     subjects: dict[Slug, Subject]
 
     @property

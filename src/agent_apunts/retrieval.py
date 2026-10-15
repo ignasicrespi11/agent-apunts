@@ -18,6 +18,7 @@ def search(
     subject: str | None = None,
     doc_type: str | None = None,
     hybrid: bool = False,
+    academic_year: str | None = None,
 ) -> list[Hit]:
     (vector,) = embedder.embed([question])
     return store.search(
@@ -27,4 +28,5 @@ def search(
         subject=subject,
         doc_type=doc_type,
         query_text=question if hybrid else None,  # keywords too (D37)
+        academic_year=academic_year,
     )

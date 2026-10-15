@@ -30,6 +30,13 @@ uv run agent-apunts doctor                 # all "ok" (the LLM line too)
 | 10 | `uv run agent-apunts ask "Qui va guanyar el mundial de 2010?"` | Abstains ("No ho he trobat als teus apunts") with reason `low_score` or `not_found` | the output |
 | 11 | 5 more `ask` in ca/es/en about things you know are in the notes | Wrong page? no citation? wrong language? | each wrong one |
 
+### Optional on the GTX 1080: the agent (D38, proposed)
+```powershell
+uv run agent-apunts ask "Quins exàmens d'IS tinc i de quins anys?" --agent
+uv run agent-apunts ask "Compara què van preguntar sobre signatura digital els exàmens d'IS de 2023-24 i 2024-25" --agent
+```
+📋 the `→ tool(...)` lines and the answer: did it pick sensible tools and filters, and cite pages?
+
 ## 2. Golden set (any machine, ~1 hour, the most valuable step)
 
 `copy eval\golden.example.yaml eval\golden.yaml`, then write **20 questions** following `eval/README.md`

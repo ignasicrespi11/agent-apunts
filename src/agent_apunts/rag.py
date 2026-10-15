@@ -46,6 +46,14 @@ NOT_IN_NOTES = {
 AbstainReason = Literal["no_results", "low_score", "not_found"]
 
 
+class AgentStep(BaseModel):
+    """One tool call made by the agent (D38), for the log and the CLI."""
+
+    tool: str
+    arguments: dict
+    result: str  # short summary: "3 sources [4]-[6]", "error: unknown subject", ...
+
+
 class Source(BaseModel):
     number: int  # [n] as shown to the LLM
     chunk_id: str
@@ -72,6 +80,8 @@ class Answer(BaseModel):
     output_tokens: int | None = None
     # The prompt filled >= 90% of llm.num_ctx: Ollama may have cut sources or rules silently.
     context_near_limit: bool = False
+    mode: Literal["rag", "agent"] = "rag"  # single-shot ask (D32) or tool-using agent (D38)
+    steps: list[AgentStep] = []  # agent only: the tool calls, in order
 
 
 def format_sources(hits: list[Hit]) -> str:

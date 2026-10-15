@@ -16,6 +16,7 @@ from rich.progress import BarColumn, MofNCompleteColumn, Progress, TextColumn, T
 from rich.table import Table
 
 from agent_apunts import detection, doctor, evaluation
+from agent_apunts.agent import run_agent
 from agent_apunts.config import ConfigError, Settings, load_settings
 from agent_apunts.embeddings import EmbeddingError, make_embedder
 from agent_apunts.ingestion import prune as pruning
@@ -27,7 +28,7 @@ from agent_apunts.ingestion.index import index_all
 from agent_apunts.ingestion.loaders import supported_extensions
 from agent_apunts.ingestion.manifest import Manifest
 from agent_apunts.ingestion.register import RegisterReport, register_source
-from agent_apunts.llm import LLMError, make_llm
+from agent_apunts.llm import LLMError, ToolsNotSupportedError, make_chat, make_llm
 from agent_apunts.metadata import metadata_from_path
 from agent_apunts.rag import ask as answer_question
 from agent_apunts.rag import log_answer
@@ -481,6 +482,9 @@ def ask(
     hybrid: bool | None = typer.Option(
         None, "--hybrid/--no-hybrid", help="Fuse keyword search (D37). Default: settings.yaml."
     ),
+    agent: bool = typer.Option(
+        False, "--agent", help="Let the model search several times and pick filters (D38)."
+    ),
 ) -> None:
     """Answer from your notes only, citing document and page; abstain if they don't say (D32)."""
     s = _with_hybrid(_settings(), hybrid)
@@ -488,13 +492,32 @@ def ask(
         console.print(f"[red]Unknown subject {subject!r}[/red] (known: {', '.join(s.subjects)})")
         raise typer.Exit(1)
     try:
-        answer = answer_question(
-            question, s.user.id, s, make_embedder(s), _store(s), make_llm(s), subject, doc_type
-        )
+        answer = None
+        if agent:
+            if subject or doc_type:
+                console.print(
+                    "[dim]--agent chooses its own filters: --subject/--doc-type ignored.[/dim]"
+                )
+            try:
+                answer = run_agent(
+                    question, s.user.id, s, make_embedder(s), _store(s), make_chat(s)
+                )
+            except ToolsNotSupportedError:
+                console.print(
+                    f"[yellow]{s.llm.model} can't call tools: single-shot ask instead.[/yellow]"
+                )
+        if answer is None:
+            answer = answer_question(
+                question, s.user.id, s, make_embedder(s), _store(s), make_llm(s), subject, doc_type
+            )
     except (EmbeddingError, LLMError) as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1) from e
     log_answer(answer, s.paths.logs_dir)
+
+    for step in answer.steps:
+        args = ", ".join(f"{k}={v!r}" for k, v in step.arguments.items())
+        console.print(f"[dim]→ {step.tool}({escape(args)}): {escape(step.result)}[/dim]")
 
     console.print(answer.answer, markup=False, highlight=False)
     if answer.abstained:

@@ -1,6 +1,8 @@
 # Phase 2 design proposal: the agent, the API and the UI
 
-Status: **proposal, 2026-10-08** (written during an autonomous session; nothing here is built).
+Status: **proposal, 2026-10-08**. Step 1 (agent loop + 4 tools + tests with a scripted model) **built
+2026-10-15** as D38 (proposed), behind `ask --agent`; steps 2–3 (multi-step golden questions, the decision
+with numbers) and the API/UI are still to do.
 To be discussed and approved by Ignasi before implementation (TODO, phase 2: "Agent design
 session (Opus)"). Free, local tools only.
 

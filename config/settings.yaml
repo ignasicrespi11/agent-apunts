@@ -76,6 +76,11 @@ llm:
   temperature: 0
   num_ctx: 8192
 
+# Tool-using agent (D38, proposed; `ask --agent`): hard limits for a small local model.
+agent:
+  max_tool_calls: 4
+  max_chunks: 8
+
 # Metadata auto-detection (D36, proposed). A document is assigned to the subject whose centroid
 # (mean vector of its labelled documents) is closest; the guess counts as confident only if it
 # beats the second-best subject by at least min_margin (cosine). Calibrate with `detect --evaluate`.

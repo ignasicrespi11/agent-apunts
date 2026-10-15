@@ -68,3 +68,50 @@ def test_ollama_crash_mid_answer_says_what_to_do():
 
     with pytest.raises(LLMError, match="stopped answering"):
         _client(crash).complete("s", "u")
+
+
+def test_chat_sends_tools_and_parses_tool_calls():
+    seen = {}
+
+    def handler(request):
+        seen.update(json.loads(request.content))
+        message = {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {"function": {"name": "search_notes", "arguments": {"query": "TLB"}}},
+                # some models send the arguments as a JSON string
+                {"function": {"name": "get_page", "arguments": '{"document": "a.pdf", "page": 2}'}},
+            ],
+        }
+        return httpx.Response(200, json={"message": message, "prompt_eval_count": 900})
+
+    tools = [{"type": "function", "function": {"name": "search_notes"}}]
+    response = _client(handler).chat([{"role": "user", "content": "q"}], tools)
+    assert seen["tools"] == tools and seen["stream"] is False
+    assert [(c.name, c.arguments) for c in response.tool_calls] == [
+        ("search_notes", {"query": "TLB"}),
+        ("get_page", {"document": "a.pdf", "page": 2}),
+    ]
+    assert response.prompt_tokens == 900
+
+
+def test_chat_without_tools_sends_no_tools_field():
+    seen = {}
+
+    def handler(request):
+        seen.update(json.loads(request.content))
+        return httpx.Response(200, json={"message": {"content": " Final [1]. "}})
+
+    response = _client(handler).chat([{"role": "user", "content": "q"}])
+    assert "tools" not in seen and response.text == "Final [1]." and response.tool_calls == []
+
+
+def test_model_without_tool_support_is_reported():
+    from agent_apunts.llm import ToolsNotSupportedError
+
+    def handler(request):
+        return httpx.Response(400, json={"error": "llama2 does not support tools"})
+
+    with pytest.raises(ToolsNotSupportedError):
+        _client(handler).chat([{"role": "user", "content": "q"}], [{"type": "function"}])

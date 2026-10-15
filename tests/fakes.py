@@ -45,3 +45,27 @@ class ScriptedLLM:
         self.prompts.append((system, user))
         text = self._answers.pop(0) if self._answers or self._default is None else self._default
         return LLMResponse(text=text, model=self.model, latency_ms=1)
+
+
+class ScriptedChat:
+    """A tool-calling model with pre-written turns. Each turn is a final text (str) or a list of
+    (tool name, arguments) calls. Records every request (messages, tools) for assertions."""
+
+    model = "fake-chat"
+
+    def __init__(self, *turns, default: str = "NOT_FOUND") -> None:
+        self._turns = list(turns)
+        self._default = default
+        self.requests: list[tuple[list[dict], list[dict] | None]] = []
+
+    def chat(self, messages, tools=None):
+        from agent_apunts.llm import ChatResponse, ToolCall
+
+        self.requests.append(([dict(m) for m in messages], tools))
+        turn = self._turns.pop(0) if self._turns else self._default
+        if tools is None and not isinstance(turn, str):
+            turn = self._default  # without tools a real model can only write text
+        if isinstance(turn, str):
+            return ChatResponse(text=turn, tool_calls=[], model=self.model, latency_ms=1)
+        calls = [ToolCall(name=n, arguments=a) for n, a in turn]
+        return ChatResponse(text="", tool_calls=calls, model=self.model, latency_ms=1)

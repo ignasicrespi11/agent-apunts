@@ -190,6 +190,17 @@ class VectorStore:
         selector = models.FilterSelector(filter=_user_filter(user_id, doc_id=doc_id))
         self._client.delete(self.collection, points_selector=selector, wait=True)
 
+    def page_chunks(self, user_id: str, rel_path: str, page: int) -> list[Hit]:
+        """Every chunk of one page of one document of this user, in reading order (the agent's
+        get_page tool, D38). Filtered inside Qdrant like search; score 0: not a similarity."""
+        flt = _user_filter(user_id, rel_path=rel_path)
+        flt.must.append(models.FieldCondition(key="page", match=models.MatchValue(value=page)))
+        points, _ = self._client.scroll(
+            self.collection, scroll_filter=flt, limit=100, with_payload=True
+        )
+        hits = [Hit(str(p.id), 0.0, p.payload or {}) for p in points]
+        return sorted(hits, key=lambda h: h.payload.get("chunk_index", 0))
+
     def count(self, user_id: str, doc_id: str | None = None) -> int:
         result = self._client.count(
             self.collection, count_filter=_user_filter(user_id, doc_id=doc_id), exact=True
@@ -204,12 +215,13 @@ class VectorStore:
         subject: str | None = None,
         doc_type: str | None = None,
         query_text: str | None = None,
+        academic_year: str | None = None,
     ) -> list[Hit]:
         """Best chunks among this user's chunks (filters applied inside Qdrant).
 
         Dense only by default; with `query_text`, hybrid: dense and keyword (sparse) candidates
         fused with RRF. Either way each Hit.score is the dense cosine similarity."""
-        flt = _user_filter(user_id, subject=subject, doc_type=doc_type)
+        flt = _user_filter(user_id, subject=subject, doc_type=doc_type, academic_year=academic_year)
         if query_text is None:
             response = self._client.query_points(
                 self.collection,

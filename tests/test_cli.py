@@ -312,3 +312,47 @@ def test_documents_lists_paths_pages_and_state(fake_services):
     assert result.exit_code == 0, result.output
     assert "disseny_software/theory/patrons.pdf" in result.output
     assert "extract chunk index" in result.output and "e.pdf" not in result.output
+
+
+def test_ask_agent_shows_steps_and_logs_mode(fake_services, monkeypatch):
+    from agent_apunts import cli
+    from tests.fakes import ScriptedChat
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide"])
+    settings_file = fake_services / "config" / "settings.yaml"
+    settings_file.write_text(settings_file.read_text().replace("min_score: 0.45", "min_score: 0.0"))
+    assert runner.invoke(app, ["ingest"]).exit_code == 0
+    chat = ScriptedChat([("search_notes", {"query": "observador"})], "Notifica [1].")
+    monkeypatch.setattr(cli, "make_chat", lambda settings: chat)
+
+    result = runner.invoke(app, ["ask", "Què fa l'observador?", "--agent"])
+    assert result.exit_code == 0, result.output
+    assert "search_notes(query='observador')" in result.output and "Notifica [1]." in result.output
+    log = (fake_services / "logs" / "queries.jsonl").read_text(encoding="utf-8")
+    assert '"mode": "agent"' in log and '"tool": "search_notes"' in log
+
+
+def test_ask_agent_falls_back_when_the_model_has_no_tools(fake_services, monkeypatch):
+    from agent_apunts import cli
+    from agent_apunts.llm import ToolsNotSupportedError
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide"])
+    settings_file = fake_services / "config" / "settings.yaml"
+    settings_file.write_text(settings_file.read_text().replace("min_score: 0.45", "min_score: 0.0"))
+    assert runner.invoke(app, ["ingest"]).exit_code == 0
+
+    class NoTools:
+        model = "old-model"
+
+        def chat(self, messages, tools=None):
+            raise ToolsNotSupportedError("no tools")
+
+    monkeypatch.setattr(cli, "make_chat", lambda settings: NoTools())
+    result = runner.invoke(app, ["ask", "Què fa l'observador?", "--agent"])
+    assert result.exit_code == 0, result.output
+    assert "single-shot ask instead" in result.output
+    assert "Notifica els canvis [1]." in result.output  # ScriptedLLM from fake_services

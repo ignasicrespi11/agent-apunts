@@ -28,6 +28,7 @@ cli.py  (Typer: every `agent-apunts <command>` is a function here; thin: load se
         └─ QUERY
             retrieval.py   question -> embedding -> store.search (user filter inside Qdrant)
             rag.py         ask(): abstain or LLM answer with [n] citations (llm.py), log
+            agent.py       run_agent(): the model calls tools (search, list, get_page) (D38)
             evaluation.py  golden set metrics (hit@k, MRR, abstention, citations)
             detection.py   subject/doc_type suggestions for unorganised PDFs (D36)
             doctor.py      environment checks

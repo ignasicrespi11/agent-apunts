@@ -28,6 +28,7 @@ uv run agent-apunts index      # stage 5: bge-m3 embeddings (Ollama) -> Qdrant, 
 uv run agent-apunts ingest     # all stages
 uv run agent-apunts search "question" [--subject X]   # filtered semantic search
 uv run agent-apunts ask "question" [--subject X]      # local LLM answer with [n] page citations, or abstains
+uv run agent-apunts ask "question" --agent            # the model searches several times / picks filters (D38)
 uv run agent-apunts search "question" --hybrid       # + keyword (BM25) fusion
 uv run agent-apunts eval [--sweep] [--hybrid] [--answers]   # metrics on the golden set (eval/)
 uv run agent-apunts images | prune [--dry-run]        # hidden image content | forget deleted PDFs
