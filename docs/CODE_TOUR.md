@@ -24,6 +24,7 @@ cli.py  (Typer: every `agent-apunts <command>` is a function here; thin: load se
         │   index.py       stage 5: embeddings.py + store.py -> Qdrant
         │   manifest.py    SQLite: which documents exist, which stages are done
         │   image_report.py  how much content hides in images (D30)
+        │   ocr.py         optional: text inside large images via Tesseract (D39)
         │
         └─ QUERY
             retrieval.py   question -> embedding -> store.search (user filter inside Qdrant)
@@ -101,3 +102,9 @@ thought of):
 - **Anything that filters by user**: `store.py` `_user_filter`. A bug there leaks one user's notes
   to another (`tests/test_store.py` has an isolation test).
 - **The prompt**: `rag.py` `SYSTEM_PROMPT`. Its effect is only known by running `eval --answers`.
+- **The agent** (`agent.py`, D38): what the model may choose (tool arguments) versus what the runtime
+  fixes (user_id, the score gate, the word budget). Check `_known` (drops invented arguments) and
+  `_numbered` (global numbers, budget). A small model will call tools badly: `tests/test_agent.py`
+  shows what happens then; the real rate only comes from `eval --answers --agent`.
+- **OCR** (`ingestion/ocr.py`, D39): output is approximate by nature (accents, code symbols). It is
+  labelled in the chunk and off by default; trust it only after `compare` shows a gain.
