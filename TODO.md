@@ -1,38 +1,11 @@
 # TODO
 
-Current: **Phase 1 · Week 2 (6–12 Oct 2026)**. Weeks 2–4 code is built (PR #3 open: D30–D33 accepted, D34–D37 proposed).
+Current: **Phase 1 · Week 3 (13–19 Oct 2026)**. Weeks 2–4 code is built (PR #3 open, all decisions D30–D37 accepted).
 Real corpus: 108 docs extracted/chunked (2,366 chunks); first index interrupted at 943 points on Omarchy (resumable).
 
-**Branches:** PR #3 = `claude/serene-brahmagupta-md8g0y`. Everything since 2026-10-09 (progress bars, prune brake,
-token counts, loader v7, Windows no-Docker setup, doctor GPU line) is on `claude/vibrant-goodall-5rmyu2`, which is
-PR #3 + 17 commits. Use that branch on every machine; when Ignasi OKs it, Claude pushes it to the PR #3 branch
-(fast-forward) so one PR holds everything.
-
-**Next session — Omarchy** (`cd ~/code/agent-apunts && git fetch && git checkout claude/vibrant-goodall-5rmyu2 && git pull`):
-1. `uv run agent-apunts ingest` → re-extracts once (loader v7, minutes), then resumes the index from 943 points with a
-   progress bar (~50 min on CPU; only chunks whose text changed are re-embedded). Run it a 2nd time: same point count.
-2. `uv run agent-apunts images`, `detect --evaluate` (~20 min the first time, now with a progress bar and resumable),
-   `duplicates` → paste the output in the session, note the numbers below.
-3. `uv run agent-apunts search "què és el patró Creator?"` and `search "TLB" --hybrid` → right slides first?
-4. Review D34–D37, then merge PR #3.
-5. Write `eval/golden.yaml` (20 questions, see `eval/README.md`; `eval` now flags unknown documents and impossible
-   pages), then `eval --sweep` and `eval --hybrid`.
-
-**Windows PC 2** (Ryzen 5 3600, RX 480 8 GB, 16 GB; `cd $HOME\code\agent-apunts`, same branch):
-1. `winget install --id Ollama.Ollama -e` (or re-run `scripts\setup-windows.ps1`), new terminal, `ollama pull bge-m3`.
-   `OLLAMA_VULKAN=1` is already set (User): check the GPU with `uv run agent-apunts doctor` (line `ollama memory`) after
-   a `search`, or `ollama ps`.
-2. Qdrant: Docker needs **SVM Mode** on in the BIOS (docs/SETUP.md > Troubleshooting); without the BIOS change:
-   `powershell -ExecutionPolicy Bypass -File scripts\qdrant-windows.ps1` in a second window.
-3. `uv run agent-apunts ingest` (CPU or Vulkan: compare chunks/min with Omarchy's ~29), then `ollama pull qwen2.5:7b`
-   and `ask` (on the CPU an answer may take 1–2 min).
-
-**GTX 1080 PC:** `ollama pull qwen2.5:7b`, `ask` on 10 questions (`doctor` should say 100% GPU), then `eval --answers`.
-
-**To decide** (after seeing `search` results): "Solució:" / "Solution:" labels are removed as boilerplate, so chunks
-lose where an exam's solution starts (option A: never treat a short "Word:" label as boilerplate; B: keep removing it
-and mark pages with solutions); topic headers like "P5: Jerarquía de Memoria" are removed too (idea: reuse the most
-frequent removed descriptive line in the chunk header).
+**Hands-on steps for Ignasi (GTX 1080 PC first, golden set, Omarchy, PC 2): [`NEXT_STEPS.md`](NEXT_STEPS.md).**
+Branch everywhere: `claude/vibrant-goodall-5rmyu2` (PR #3 + everything since; pushed to the PR #3 branch 2026-10-15).
+All review decisions D30–D37 accepted; D27 revised ("Solució:" labels kept, chunker v2).
 
 ## Corpus findings (2026-09-29, labelled set)
 - 110 PDFs, 2,087 pages. No encrypted/broken files.
