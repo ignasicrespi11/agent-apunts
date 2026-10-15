@@ -21,7 +21,7 @@ from agent_apunts.ingestion.manifest import DocumentRecord, Manifest
 from agent_apunts.metadata import DocumentMetadata
 
 STAGE = "chunk"
-CHUNKER_VERSION = 1  # bump when chunking/cleaning code changes its output
+CHUNKER_VERSION = 2  # bump when chunking/cleaning code changes its output. 2: labels kept
 # Fixed namespace for chunk UUIDs: same inputs -> same UUID on every machine, forever.
 _CHUNK_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "https://github.com/ignasicrespi11/agent-apunts")
 

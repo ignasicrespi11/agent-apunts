@@ -69,9 +69,16 @@ def test_numbers_repeated_in_tables_are_kept():
     assert _clean(texts).pages == texts
 
 
-def test_repeated_short_label_is_removed_and_reported():
-    # Known trade-off (D27): a label repeated on most pages is treated as boilerplate. It shows up
-    # in the audit list, which is how a wrong removal gets noticed.
-    texts = [f"Exercise {i}\nSolution:\nanswer {i * 7}" for i in range(1, 5)]
+def test_solution_labels_are_kept():
+    # Real corpus (IS exams): "Solució:" on most pages was removed as boilerplate, so chunks lost
+    # where each solution starts. Short "Word:" labels are structure, not boilerplate.
+    texts = [f"Exercici {i}\nSolució:\nresposta {i * 7}" for i in range(1, 5)]
     result = _clean(texts)
-    assert "Solution:" in result.removed
+    assert result.pages == texts and not result.removed
+
+
+def test_form_lines_with_colons_are_still_boilerplate():
+    # The exam header form has colons but is not a bare label: still removed.
+    form = "Nombre:.............. NIU:........ Nota:......"
+    texts = [f"{form}\nPregunta {i}" for i in range(1, 5)]
+    assert _clean(texts).removed == {form: 4}

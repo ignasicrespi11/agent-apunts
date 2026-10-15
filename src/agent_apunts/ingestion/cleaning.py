@@ -15,6 +15,10 @@ _NUMBER_ONLY = re.compile(r"\d{1,4}")
 # A cover page is often unnumbered, so printed page numbers can lag the real page by 1 or 2.
 _PAGE_NUMBER_OFFSETS = (0, 1, 2)
 PAGE_NUMBER_LABEL = "(page number)"
+# A short label that ends in a colon and holds nothing else ("Solució:", "Solution:", "Answer:").
+# Repeated on most pages of an exam with solutions, it would count as boilerplate, but it marks
+# where a statement ends and its solution starts: chunks need that, and it adds almost no noise.
+_LABEL = re.compile(r"[^\W\d_][\w ]{0,30}:")
 
 
 def _key(line: str) -> str:
@@ -28,6 +32,8 @@ def _can_be_boilerplate(line: str, max_chars: int) -> bool:
     # Must contain a letter: a number repeated on many pages ("0", "1" in exam tables) is data.
     # Numbers alone are only removed by the page-number rule below.
     stripped = line.strip()
+    if _LABEL.fullmatch(stripped):
+        return False
     return 0 < len(stripped) <= max_chars and any(c.isalpha() for c in stripped)
 
 
