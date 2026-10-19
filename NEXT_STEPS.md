@@ -4,6 +4,9 @@ What is left to do **on the machines**, in order. Claude can't do these: they ne
 a GPU. Paste the output of every step marked 📋 into the next Claude session; it turns them into settings,
 numbers in `docs/weekly/` and decisions. `TODO.md` keeps the plan; this file is the checklist.
 
+**Stopping a long run** (`ingest`, `index`, `detect`): **Ctrl+C** anytime. Finished documents are kept; the same
+command later resumes where it stopped. Before closing the laptop: Ctrl+C, then `docker compose stop` (optional).
+
 Branch everywhere: `claude/vibrant-goodall-5rmyu2` = PR #3 + two proposed features that are off unless you ask for
 them (D38 agent: `ask --agent`; D39 OCR: `extraction.ocr.enabled`). They go in a second PR after #3 is merged.
 
