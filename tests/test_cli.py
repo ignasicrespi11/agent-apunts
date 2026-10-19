@@ -94,6 +94,14 @@ def test_register_unknown_source(in_project):
     assert "unknown source" in result.output
 
 
+def _no_score_gate(settings_file):
+    """min_score 0 in a test project's settings.yaml, whatever the calibrated value is."""
+    import re
+
+    text = settings_file.read_text()
+    settings_file.write_text(re.sub(r"min_score: [\d.]+", "min_score: 0.0", text))
+
+
 @pytest.fixture
 def fake_services(monkeypatch, in_project):
     """Ollama -> HashEmbedder, Qdrant -> one in-memory store shared by every command call."""
@@ -142,7 +150,7 @@ def test_ask_answers_cites_and_logs(fake_services):
     corpus = fake_services / "testing" / "apunts_testing"
     make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide"])
     settings_file = fake_services / "config" / "settings.yaml"
-    settings_file.write_text(settings_file.read_text().replace("min_score: 0.45", "min_score: 0.0"))
+    _no_score_gate(settings_file)
     assert runner.invoke(app, ["ingest"]).exit_code == 0
 
     result = runner.invoke(app, ["ask", "Què fa el patró observador?"])
@@ -258,7 +266,7 @@ def test_eval_answers_end_to_end(fake_services, monkeypatch):
     corpus = fake_services / "testing" / "apunts_testing"
     make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide"])
     settings_file = fake_services / "config" / "settings.yaml"
-    settings_file.write_text(settings_file.read_text().replace("min_score: 0.45", "min_score: 0.0"))
+    _no_score_gate(settings_file)
     assert runner.invoke(app, ["ingest"]).exit_code == 0
     llm = ScriptedLLM("El patró notifica [1].", "NOT_FOUND")
     monkeypatch.setattr(cli, "make_llm", lambda s: llm)
@@ -322,7 +330,7 @@ def test_ask_agent_shows_steps_and_logs_mode(fake_services, monkeypatch):
     corpus = fake_services / "testing" / "apunts_testing"
     make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide"])
     settings_file = fake_services / "config" / "settings.yaml"
-    settings_file.write_text(settings_file.read_text().replace("min_score: 0.45", "min_score: 0.0"))
+    _no_score_gate(settings_file)
     assert runner.invoke(app, ["ingest"]).exit_code == 0
     chat = ScriptedChat([("search_notes", {"query": "observador"})], "Notifica [1].")
     monkeypatch.setattr(cli, "make_chat", lambda settings: chat)
@@ -342,7 +350,7 @@ def test_ask_agent_falls_back_when_the_model_has_no_tools(fake_services, monkeyp
     corpus = fake_services / "testing" / "apunts_testing"
     make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide"])
     settings_file = fake_services / "config" / "settings.yaml"
-    settings_file.write_text(settings_file.read_text().replace("min_score: 0.45", "min_score: 0.0"))
+    _no_score_gate(settings_file)
     assert runner.invoke(app, ["ingest"]).exit_code == 0
 
     class NoTools:
@@ -366,7 +374,7 @@ def test_eval_answers_with_the_agent_reports_per_tag(fake_services, monkeypatch)
     corpus = fake_services / "testing" / "apunts_testing"
     make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide"])
     settings_file = fake_services / "config" / "settings.yaml"
-    settings_file.write_text(settings_file.read_text().replace("min_score: 0.45", "min_score: 0.0"))
+    _no_score_gate(settings_file)
     assert runner.invoke(app, ["ingest"]).exit_code == 0
     chat = ScriptedChat(
         [("search_notes", {"query": "observador", "subject": "disseny_software"})],
