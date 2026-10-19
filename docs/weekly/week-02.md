@@ -31,6 +31,9 @@
   virtualization off in the BIOS; the setup script now detects it, Qdrant can run without Docker,
   and `doctor` says whether Ollama runs on the GPU or the CPU.
 
+- **Metadata auto-detection measured**: subject right for 100% of the 108 labelled PDFs (leave-one-out, also without
+  near-duplicates), 95% of guesses confident; doc_type by keywords 73%.
+
 ## Why (key decisions)
 - **Size decides how a page is chunked**, not its shape: one rule covers slides (~400 chars) and
   dense exam pages (~3,000 chars). A chunk that mixes topics gives a vector that matches nothing well.

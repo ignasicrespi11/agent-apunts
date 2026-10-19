@@ -101,7 +101,11 @@ detection:
   sample_chunks: 6
   # Near-duplicates (translations, with/without solutions): `duplicates` lists pairs above this,
   # and `detect --evaluate` also reports accuracy without them (provisional, D19).
-  duplicate_similarity: 0.9
+  # Set 2026-10-19 from `duplicates`: at 0.90, 65 pairs mixed real near-duplicates (ES/EN translations,
+  # statement vs solutions: 0.94-0.96) with different documents on the same topic (exams of other
+  # years, theory vs its exercises: 0.90-0.93). 0.94 keeps only the first kind: collapsing a
+  # different document in search would hide real content, so precision first.
+  duplicate_similarity: 0.94
 
 # Query log (D33): one JSON line per question, with user_id. Gitignored: it contains your questions.
 logs_dir: logs
