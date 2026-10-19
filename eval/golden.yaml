@@ -1,0 +1,197 @@
+# Golden set v1 (2026-10-19): drafted by Claude from page TITLES only (`documents --titles`), to be
+# checked by Ignasi. Expected pages = the run of slides whose title is that topic, so they may be
+# a bit wide. If `eval` lists a question as not found, open its top result and the expected pages
+# with `inspect <file> --page N`: fix the question or the pages here, not the code.
+questions:
+  # --- Disseny de Software (slides in English; questions in ca/es/en) ---
+  - id: ds-creator
+    question: "Quina classe hauria de crear un objecte segons el patró Creator de GRASP?"
+    language: ca
+    subject: disseny_software
+    tags: [definition]
+    expected:
+      - document: disseny_software/theory/slides_grasp.pdf
+        pages: [33, 34, 35, 36, 37, 38, 39]
+
+  - id: ds-low-coupling
+    question: "¿Por qué conviene tener bajo acoplamiento entre clases?"
+    language: es
+    subject: disseny_software
+    tags: [definition]
+    expected:
+      - document: disseny_software/theory/slides_grasp.pdf
+        pages: [40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50]
+
+  - id: ds-observer
+    question: "How does the Observer pattern notify the objects that depend on a subject?"
+    language: en
+    subject: disseny_software
+    tags: [definition]
+    expected:
+      - document: disseny_software/theory/behavioural.pdf
+        pages: [21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
+
+  - id: ds-singleton-code
+    question: "¿Cómo se implementa una clase Singleton para que solo exista una instancia?"
+    language: es
+    subject: disseny_software
+    tags: [code-image, procedure]
+    expected:
+      - document: disseny_software/theory/creational.pdf
+        pages: [4, 5, 6, 7, 8, 9]
+
+  - id: ds-adapter-vs-decorator
+    question: "Quina diferència hi ha entre el patró Adapter i el patró Decorator?"
+    language: ca
+    subject: disseny_software
+    tags: [multi-step]
+    expected:
+      - document: disseny_software/theory/structural.pdf
+        pages: [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]
+
+  - id: ds-decorator-javaio
+    question: "Why are the Java input/output stream classes an example of the Decorator pattern?"
+    language: en
+    subject: disseny_software
+    tags: [code-image]
+    expected:
+      - document: disseny_software/theory/exemple-decorador-java-io.pdf  # any page
+      - document: disseny_software/theory/structural.pdf
+        pages: [14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27]
+
+  - id: ds-assertions
+    question: "En quins casos NO s'han de fer servir assercions?"
+    language: ca
+    subject: disseny_software
+    tags: [definition]
+    expected:
+      - document: disseny_software/theory/slides_programming_with_assertions.pdf
+        pages: [7, 8]
+
+  - id: ds-liskov
+    question: "What does the Liskov Substitution Principle say?"
+    language: en
+    subject: disseny_software
+    tags: [definition]
+    expected:
+      - document: disseny_software/theory/slides_principles.pdf
+        pages: [35, 36, 37, 38, 39]
+
+  - id: ds-bad-comments
+    question: "¿Qué tipos de comentarios en el código se consideran malos?"
+    language: es
+    subject: disseny_software
+    tags: [definition]
+    expected:
+      - document: disseny_software/theory/slides_comments.pdf
+        pages: [17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]
+
+  - id: ds-flutter-widgets
+    question: "Quina diferència hi ha entre un widget stateless i un de stateful a Flutter?"
+    language: ca
+    subject: disseny_software
+    tags: [definition]
+    expected:
+      - document: disseny_software/theory/flutter_dart_campus.pdf
+        pages: [46, 47, 48]
+
+  # --- Arquitectura de Computadors (Spanish material) ---
+  - id: ac-simd
+    question: "Què és la vectorització SIMD i per què accelera els bucles?"
+    language: ca
+    subject: arquitectura_computadors
+    tags: [definition]
+    expected:
+      - document: arquitectura_computadors/theory/T3B.SIMD.pdf  # any page
+
+  - id: ac-cache
+    question: "What is a cache miss and how is the hit rate of a cache computed?"
+    language: en
+    subject: arquitectura_computadors
+    tags: [definition, formula]
+    expected:
+      - document: arquitectura_computadors/theory/T6.JerarquiaMemoria.pdf
+      - document: arquitectura_computadors/exercises/B4A.Problemas.pdf
+
+  - id: ac-multicore
+    question: "¿Qué diferencia hay entre un procesador multicore y el multithreading?"
+    language: es
+    subject: arquitectura_computadors
+    tags: [definition]
+    expected:
+      - document: arquitectura_computadors/theory/T9.Multithreading.pdf
+
+  - id: ac-compiler-opt
+    question: "Quines optimitzacions pot fer el compilador sobre un bucle?"
+    language: ca
+    subject: arquitectura_computadors
+    tags: [definition]
+    expected:
+      - document: arquitectura_computadors/theory/T3A.CompilerOptimizations.pdf
+
+  # --- Informació i Seguretat ---
+  - id: is-rsa-signature
+    question: "Com funciona la signatura digital amb RSA?"
+    language: ca
+    subject: informacio_i_seguretat
+    tags: [procedure]
+    expected:
+      - document: informacio_i_seguretat/theory/ISUnit7.pdf
+        pages: [45, 46, 47]
+
+  - id: is-hamming
+    question: "What is a Hamming code and how many errors can it correct?"
+    language: en
+    subject: informacio_i_seguretat
+    tags: [definition]
+    expected:
+      - document: informacio_i_seguretat/theory/ISUnit6-Handout-EN.pdf
+        pages: [26, 27, 28, 29, 30]
+
+  - id: is-rle
+    question: "¿En qué consiste la codificación Run Length Encoding (RLE)?"
+    language: es
+    subject: informacio_i_seguretat
+    tags: [definition]
+    expected:
+      - document: informacio_i_seguretat/theory/IS-Unit4-EN-v1-0.pdf
+        pages: [6, 7, 8, 9, 10, 11]
+
+  - id: is-shannon-first
+    question: "Què diu el primer teorema de Shannon sobre els codis òptims?"
+    language: ca
+    subject: informacio_i_seguretat
+    tags: [definition]
+    expected:
+      - document: informacio_i_seguretat/theory/IS-Unit3-Handout-EN.pdf
+        pages: [9, 10, 11, 12]
+
+  - id: is-feistel
+    question: "What is a Feistel network in symmetric-key cryptography?"
+    language: en
+    subject: informacio_i_seguretat
+    tags: [definition]
+    expected:
+      - document: informacio_i_seguretat/theory/ISUnit7.pdf
+        pages: [27, 28, 29]
+
+  # --- Not in the notes: the system must abstain ---
+  - id: none-worldcup
+    question: "Qui va guanyar el mundial de futbol de 2010?"
+    language: ca
+    answerable: false
+
+  - id: none-kubernetes
+    question: "¿Cómo se configura un clúster de Kubernetes con varios nodos?"
+    language: es
+    answerable: false
+
+  - id: none-cnn
+    question: "How do you train a convolutional neural network with backpropagation?"
+    language: en
+    answerable: false
+
+  - id: none-library
+    question: "Com es renova un préstec de la biblioteca de la UAB?"
+    language: ca
+    answerable: false
