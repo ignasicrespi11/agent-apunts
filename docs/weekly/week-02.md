@@ -62,7 +62,7 @@
   the model says the sources don't answer, it abstains too. Citations map back to pages, and
   `eval --answers` measures how often they point to the right page.
 - **"How do you know retrieval is good?"** A golden set of my own questions with the expected
-  pages, in three languages: hit@5 = TODO, MRR = TODO. Every change is compared before and after.
+  pages, in three languages: hit@1 = 79%, hit@5 = 100%, MRR = 0.886 (19 questions, first baseline). Every change is compared before and after.
 - **"What happens when a file changes?"** Its content hash changes. The new version is indexed,
   the old one is pruned, and a moved file only gets its metadata updated.
 - **"How does it handle several users?"** `user_id` is a parameter everywhere and a tenant index
@@ -72,7 +72,7 @@
 ## CV bullets
 - Built a multilingual (ca/es/en) RAG system over 2,000+ pages of course material with cited,
   page-level answers and abstention, using local models only (Ollama, bge-m3, Qdrant); retrieval
-  hit@5 of TODO% on a hand-written golden set.
+  hit@5 of 100% (MRR 0.89) on a first ca/es/en golden set.
 - Designed an idempotent, versioned ingestion pipeline (content-hash IDs, incremental stages,
   safe pruning) verified on Linux and Windows and covered by 200+ automated tests.
 

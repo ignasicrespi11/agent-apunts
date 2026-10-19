@@ -69,7 +69,10 @@ qdrant:
 # If the best chunk scores below it, `ask` abstains without calling the LLM.
 retrieval:
   top_k: 5
-  min_score: 0.45
+  # Calibrated 2026-10-19 (eval --sweep, 19+4 questions): 0.55 = no answerable question refused,
+  # 3 of 4 unanswerable stopped here; the LLM's NOT_FOUND (gate 2) catches the rest. 0.60 stops all 4
+  # but refuses 1 real question: gate 1 should rather let through than block.
+  min_score: 0.55
   # Hybrid search (D37, proposed): fuse dense (meaning) and keyword (BM25) results. Indexing always
   # stores both, so `eval --hybrid` vs `eval` compares them without re-indexing.
   hybrid: false
