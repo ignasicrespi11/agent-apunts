@@ -391,3 +391,15 @@ def test_eval_answers_with_the_agent_reports_per_tag(fake_services, monkeypatch)
     assert "multi-step" in result.output and "Abstention accuracy 100%" in result.output
     (saved,) = (fake_services / "data" / "eval").glob("answers-*.json")
     assert '"mode": "agent"' in saved.read_text(encoding="utf-8")
+
+
+def test_documents_titles_lists_page_titles(fake_services):
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide", "a4"])
+    assert runner.invoke(app, ["ingest"]).exit_code == 0
+    result = runner.invoke(app, ["documents", "--titles"])
+    assert result.exit_code == 0, result.output
+    assert "disseny_software/theory/patrons.pdf (2 pages" in result.output
+    assert "  p1: Patrons de disseny" in result.output

@@ -182,6 +182,9 @@ def extract(
 @app.command()
 def documents(
     subject: str | None = typer.Option(None, help="Only this subject (folder name)."),
+    titles: bool = typer.Option(
+        False, "--titles", help="Plain list with every page title (to write golden questions)."
+    ),
 ) -> None:
     """List every document: its path as eval/golden.yaml expects it, pages, languages, state."""
     s = _settings()
@@ -200,6 +203,18 @@ def documents(
     if not records:
         console.print("No documents. Run `ingest` (or check --subject).")
         raise typer.Exit(1)
+    if titles:
+        # Plain text, one line per titled page: easy to save to a file and share in a session.
+        for r in records:
+            extracted = processed_path(s, s.user.id, r.doc_id)
+            if not extracted.is_file():
+                continue
+            doc = read_json(extracted)
+            print(f"\n{r.rel_path} ({len(doc.pages)} pages, {', '.join(doc.languages) or '-'})")
+            for p in doc.pages:
+                if p.title:
+                    print(f"  p{p.number}: {p.title[:80]}")
+        return
     table = Table("document (rel_path)", "pages", "languages", "done")
     for r in records:
         extracted = processed_path(s, s.user.id, r.doc_id)
