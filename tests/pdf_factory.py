@@ -29,7 +29,7 @@ def _image(page: pymupdf.Page, rect: pymupdf.Rect) -> None:
 
 
 def make_pdf(path: Path, pages: list[str]) -> Path:
-    """pages: list of 'slide', 'a4', 'dense' or 'image' (one page each)."""
+    """pages: list of 'slide', 'a4', 'dense', 'code' or 'image' (one page each)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     doc = pymupdf.open()
     for kind in pages:
@@ -45,6 +45,15 @@ def make_pdf(path: Path, pages: list[str]) -> Path:
             page = doc.new_page(width=A4[0], height=A4[1])
             paragraphs = "\n\n".join(f"Paragraph {i}. " + SPANISH * 4 for i in range(1, 5))
             page.insert_textbox(pymupdf.Rect(40, 40, 555, 800), paragraphs, fontsize=7)
+        elif kind == "code":  # text + a big image, like a slide with a code screenshot (D30)
+            page = doc.new_page(width=SLIDE[0], height=SLIDE[1])
+            page.insert_text((50, 80), "Observer: implementation", fontsize=30)
+            page.insert_text(
+                (50, 130),
+                "The subject keeps a list and notifies every registered observer.",
+                fontsize=16,
+            )
+            _image(page, pymupdf.Rect(50, 160, 790, 560))
         elif kind == "image":
             page = doc.new_page(width=SLIDE[0], height=SLIDE[1])
             _image(page, pymupdf.Rect(50, 50, 790, 545))

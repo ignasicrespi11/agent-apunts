@@ -17,6 +17,14 @@ def search(
     limit: int = 5,
     subject: str | None = None,
     doc_type: str | None = None,
+    hybrid: bool = False,
 ) -> list[Hit]:
     (vector,) = embedder.embed([question])
-    return store.search(user_id, vector, limit=limit, subject=subject, doc_type=doc_type)
+    return store.search(
+        user_id,
+        vector,
+        limit=limit,
+        subject=subject,
+        doc_type=doc_type,
+        query_text=question if hybrid else None,  # keywords too (D37)
+    )

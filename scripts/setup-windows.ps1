@@ -38,6 +38,18 @@ $tools = @("Git.Git", "GitHub.cli", "astral-sh.uv", "Microsoft.VisualStudioCode"
 foreach ($t in $tools) { Winget-Install $t }
 Refresh-Path
 
+Step "Checking hardware virtualization (required by WSL2 and Docker Desktop)"
+# Found on Windows PC 2 (2026-10-10): Docker Desktop said "Virtualization is disabled in firmware".
+# A running hypervisor hides the CPU flag (VirtualizationFirmwareEnabled reads False), so check it first.
+$HypervisorOn = (Get-CimInstance Win32_ComputerSystem).HypervisorPresent
+$FirmwareOn = (Get-CimInstance Win32_Processor | Select-Object -First 1).VirtualizationFirmwareEnabled
+if ($HypervisorOn -or $FirmwareOn) { Write-Host "  Virtualization OK" }
+else {
+    Write-Host "  Virtualization is OFF in the BIOS/UEFI: Docker (Qdrant) cannot start." -ForegroundColor Yellow
+    Write-Host "  Turn on 'SVM Mode' (AMD) or 'Intel VT-x' in the BIOS: see docs\SETUP.md > Troubleshooting." -ForegroundColor Yellow
+    Write-Host "  Or run Qdrant without Docker: scripts\qdrant-windows.ps1" -ForegroundColor Yellow
+}
+
 Step "Checking WSL2 (required by Docker Desktop)"
 if (-not (Succeeds { wsl --status })) {
     Write-Host "  WSL2 is not installed. Run this in an ADMIN PowerShell, reboot, then re-run this script:" -ForegroundColor Yellow
@@ -91,9 +103,28 @@ if ($Corpus -and ($EnvLines -contains "TESTING_DIR=")) {
 else { Write-Host "  OneDrive folder _UNI\apunts_testing not found yet: sign in to OneDrive (UAB), then re-run" -ForegroundColor Yellow }
 
 Step "Embedding model (bge-m3 via Ollama)"
+# Right after `winget install` the Ollama server is not running yet: start the tray app once.
+$OllamaApp = "$env:LOCALAPPDATA\Programs\Ollama\ollama app.exe"
+if (-not (Succeeds { ollama list }) -and (Test-Path $OllamaApp)) {
+    Start-Process $OllamaApp; Start-Sleep -Seconds 5
+}
 Write-Host "  Downloading bge-m3 (~1.2 GB) if missing, this can take a few minutes..."
 if (Succeeds { ollama pull bge-m3 }) { Write-Host "  bge-m3 ready" }
 else { Write-Host "  Could not pull bge-m3: open the Ollama app once, then run 'ollama pull bge-m3'" -ForegroundColor Yellow }
+
+Step "GPU for Ollama"
+# NVIDIA: used automatically (CUDA). AMD cards without ROCm support (e.g. RX 480/580) need Ollama's
+# experimental Vulkan backend, which is opt-in: suggest it, don't force an experimental setting.
+$Gpus = (Get-CimInstance Win32_VideoController).Name
+if ($Gpus -match "NVIDIA") { Write-Host "  NVIDIA GPU: Ollama uses it automatically" }
+elseif ($Gpus -match "Radeon|AMD") {
+    if ([Environment]::GetEnvironmentVariable("OLLAMA_VULKAN", "User") -eq "1") { Write-Host "  AMD GPU: OLLAMA_VULKAN=1 is set" }
+    else {
+        Write-Host "  AMD GPU ($($Gpus -join ', ')): Ollama may run on the CPU. To try the GPU (experimental):" -ForegroundColor Yellow
+        Write-Host '      [Environment]::SetEnvironmentVariable("OLLAMA_VULKAN", "1", "User")' -ForegroundColor Yellow
+        Write-Host "  then quit Ollama from the tray, reopen it, and check 'ollama ps' (docs\SETUP.md)." -ForegroundColor Yellow
+    }
+} else { Write-Host "  No dedicated GPU found: Ollama runs on the CPU (fine for embeddings, slow for the LLM)" }
 
 Step "Docker"
 if (Get-Command docker -ErrorAction SilentlyContinue) {

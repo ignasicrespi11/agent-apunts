@@ -22,6 +22,7 @@ class RawPage(BaseModel):
     text: str
     title: str | None  # best guess at the page's heading, if any
     image_count: int  # embedded images on the page
+    image_coverage: float = 0.0  # fraction of the page covered by images, 0-1 (D30)
     thumbnail: Path | None  # PNG written by the loader, if it can render pages
 
 

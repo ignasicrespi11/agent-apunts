@@ -46,6 +46,7 @@ class Paths(_Strict):
     apunts_dir: Path  # inbox of real material
     testing_dir: Path  # manually labelled set (dev corpus + ground truth)
     data_dir: Path  # stage outputs
+    logs_dir: Path  # query log (D33)
 
     @property
     def manifest(self) -> Path:
@@ -63,12 +64,17 @@ class Paths(_Strict):
     def chunks_dir(self) -> Path:
         return self.data_dir / "chunks"
 
+    @property
+    def eval_dir(self) -> Path:
+        return self.data_dir / "eval"
+
 
 class ExtractionSettings(_Strict):
     image_page_max_chars: int = Field(ge=0)
     thumbnail_width: int = Field(gt=0)
     language_min_chars: int = Field(ge=0)
     language_min_confidence: float = Field(ge=0, le=1)
+    large_image_min_coverage: float = Field(ge=0, le=1)
 
 
 class CleaningSettings(_Strict):
@@ -81,6 +87,9 @@ class ChunkingSettings(_Strict):
     max_words: int = Field(gt=0)
     target_words: int = Field(gt=0)
     min_words: int = Field(ge=0)
+    # Experiment: put the document's removed running header ("P5: Jerarquía de Memoria") in
+    # every chunk header. Off until `eval` shows it helps (changing it re-chunks and re-embeds).
+    topic_in_header: bool = False
 
     @model_validator(mode="after")
     def _sizes_are_ordered(self) -> ChunkingSettings:
@@ -106,8 +115,24 @@ class QdrantSettings(_Strict):
 
 
 class LLMSettings(_Strict):
-    provider: Literal["ollama", "anthropic"]
+    provider: Literal["ollama"]  # only free, local providers are implemented (D31)
     model: str
+    temperature: float = Field(ge=0, le=2)
+    num_ctx: int = Field(gt=0)
+
+
+class DetectionSettings(_Strict):
+    min_margin: float = Field(ge=0, le=2)
+    sample_chunks: int = Field(gt=0)
+    # Document vectors at least this similar are near-duplicates (D19): reported by `duplicates`,
+    # and left out of each other's centroids in `detect --evaluate`. Calibrate with `duplicates`.
+    duplicate_similarity: float = Field(default=0.9, gt=0, le=1)
+
+
+class RetrievalSettings(_Strict):
+    top_k: int = Field(gt=0)
+    min_score: float = Field(ge=-1, le=1)  # cosine similarity
+    hybrid: bool
 
 
 class Source(_Strict):
@@ -132,6 +157,8 @@ class Settings(_Strict):
     embedding: EmbeddingSettings
     qdrant: QdrantSettings
     ollama: OllamaSettings
+    retrieval: RetrievalSettings
+    detection: DetectionSettings
     llm: LLMSettings
     subjects: dict[Slug, Subject]
 
@@ -210,11 +237,13 @@ def load_settings(project_root: Path | None = None) -> Settings:
     env = _read_env(root)
 
     data_dir = raw.pop("data_dir", "data")
+    logs_dir = raw.pop("logs_dir", "logs")
     raw["paths"] = {
         "project_root": root,
         "apunts_dir": _resolve(env["APUNTS_DIR"], root),
         "testing_dir": _resolve(env["TESTING_DIR"], root),
         "data_dir": _resolve(data_dir, root),
+        "logs_dir": _resolve(logs_dir, root),
     }
     raw.setdefault("qdrant", {})["url"] = env["QDRANT_URL"]
     raw["ollama"] = {"url": env["OLLAMA_URL"]}

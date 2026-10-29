@@ -85,3 +85,64 @@ def test_documents_not_extracted_are_listed(settings):
         register_source(m, USER, settings.source("testing"), settings)
         report = chunk_all(m, USER, settings)
     assert report.not_extracted == ["disseny_software/labs/lab.pdf"]
+
+
+def test_renaming_a_subject_rechunks(manifest, settings, project):
+    chunk_all(manifest, USER, settings)
+    path = project / "config" / "sources.yaml"
+    path.write_text(path.read_text().replace("Disseny de Software", "Software Design"))
+    renamed = load_settings(project)
+    report = chunk_all(manifest, USER, renamed)
+    assert report.chunked == ["disseny_software/theory/patrons.pdf"]
+    assert _doc(manifest, renamed, "patrons").chunks[0].header.startswith("Software Design ·")
+
+
+def test_topic_in_header_is_an_opt_in_experiment(settings):
+    from agent_apunts.ingestion.chunk import chunk_document
+    from agent_apunts.ingestion.extract import ExtractedDocument
+    from agent_apunts.ingestion.manifest import DocumentRecord
+
+    pages = [
+        {
+            "number": n,
+            "width": 595,
+            "height": 842,
+            "title": None,
+            "text": f"P5: Jerarquía de Memoria\nLa memòria cau del nivell {n} guarda blocs.",
+            "char_count": 80,
+            "language": "ca",
+            "image_count": 0,
+            "mostly_image": False,
+            "thumbnail": None,
+        }
+        for n in range(1, 5)
+    ]
+    doc = ExtractedDocument(
+        user_id=USER,
+        doc_id="d",
+        source="testing",
+        rel_path="arquitectura_computadors/labs/p5.pdf",
+        metadata=None,
+        extractor="pymupdf-7",
+        languages=["ca"],
+        pages=pages,
+    )
+    record = DocumentRecord(
+        user_id=USER,
+        doc_id="d",
+        source="testing",
+        rel_path=doc.rel_path,
+        size_bytes=1,
+        metadata=None,
+        registered_at="",
+        updated_at="",
+    )
+    off = chunk_document(doc, record, settings)
+    assert off.chunks[0].header == "p5 · p. 1"  # default: the running header is just removed
+    on_settings = settings.model_copy(
+        update={"chunking": settings.chunking.model_copy(update={"topic_in_header": True})}
+    )
+    on = chunk_document(doc, record, on_settings)
+    assert on.chunks[0].header == "p5 · P5: Jerarquía de Memoria · p. 1"
+    assert "P5:" not in on.chunks[0].text  # still removed from the text: no duplicate
+    assert on.chunker != off.chunker  # toggling the setting re-chunks

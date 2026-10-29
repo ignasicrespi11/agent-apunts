@@ -39,7 +39,7 @@ Full rationale: `docs/ARCHITECTURE.md`.
 ## Layout
 - `src/agent_apunts/`: code (ingestion/loaders, chunking, embeddings, store, retrieval, llm, rag, agent, cli)
 - `config/`: settings.yaml, sources.yaml · `apunts/`: real PDFs (inbox) · `testing/apunts_testing/<subject>/<doc_type>/`: manually labelled PDFs (dev corpus + ground truth) · `data/`: processed outputs (both **gitignored, never commit**)
-- `eval/`: golden set + eval scripts · `tests/`: pytest · `docs/`: architecture, weekly summaries
+- `eval/`: golden set + eval scripts · `tests/`: pytest · `docs/`: architecture, code tour, weekly summaries
 
 ## Commands
 - New machine: `scripts/setup-windows.ps1` or `scripts/setup-omarchy.sh` (see `docs/SETUP.md`); they also enable the pre-commit hook

@@ -20,8 +20,13 @@ Already cloned: `powershell -ExecutionPolicy Bypass -File scripts\setup-windows.
 
 - The script also installs **Ollama** and pulls `bge-m3` (embeddings, ~1.2 GB). On the PC with the GTX 1080
   Ollama uses the GPU automatically; elsewhere the CPU is enough for embeddings.
-- Docker Desktop needs WSL2. If the script warns about it, in an **admin** PowerShell run
+- Docker Desktop needs WSL2, and WSL2 needs **hardware virtualization** turned on in the BIOS/UEFI (the
+  script checks it). If the script warns about WSL2, in an **admin** PowerShell run
   `wsl --install --no-distribution`, reboot, open Docker Desktop once, then re-run the script.
+- Set up before 2026-10-08? Re-run the script: it now also installs Ollama, which older runs did not.
+- **AMD GPU** (e.g. RX 480): Ollama has no ROCm support for older Radeon cards on Windows, so it runs on
+  the CPU unless its experimental **Vulkan** backend is turned on (the script prints how). See
+  "Is Ollama using the GPU?" in step 4.
 
 ### Omarchy (Arch Linux)
 ```bash
@@ -97,6 +102,13 @@ uv run pytest            # should pass
 docker compose up -d     # starts Qdrant (Docker Desktop must be running on Windows)
 ```
 
+One command checks the whole machine (folders, Ollama and its models, Qdrant, pipeline progress) and
+prints the fix for anything missing:
+
+```bash
+uv run agent-apunts doctor
+```
+
 Check `.env` is read correctly (paths resolved, PDFs counted per subject; secrets are never printed):
 
 ```bash
@@ -110,6 +122,32 @@ they can always be rebuilt by re-ingesting.
 
 Check Ollama has the embedding model: `ollama list` must show `bge-m3`. If not: `ollama pull bge-m3`
 (Windows: open the Ollama app once first; Omarchy: `systemctl status ollama`).
+
+### Is Ollama using the GPU?
+While `index`, `search` or `ask` runs (or up to ~5 minutes after), `ollama ps` or `uv run agent-apunts doctor`
+(line `ollama memory`) shows where each loaded model runs: `100% GPU`, `100% CPU`, or a split (the model
+doesn't fit in GPU memory: slower). Measured speeds for `index` (bge-m3): ~29 chunks/min on Omarchy's CPU.
+
+- NVIDIA (GTX 1080): used automatically.
+- AMD on Windows (RX 480 and other cards without ROCm): experimental Vulkan backend (Ollama ≥ 0.12.11), opt-in:
+  ```powershell
+  [Environment]::SetEnvironmentVariable("OLLAMA_VULKAN", "1", "User")
+  ```
+  Quit Ollama from the tray, open a **new** PowerShell, reopen Ollama, then check
+  `Select-String -Path "$env:LOCALAPPDATA\Ollama\server.log" -Pattern "vulkan|inference compute" | Select -Last 5`.
+  If answers break or Ollama crashes, undo it with the same command and `$null` instead of `"1"`.
+
+### Qdrant without Docker (Windows)
+If Docker can't run (virtualization off and the BIOS can't be changed now), Qdrant also ships as a
+single Windows program. In a separate PowerShell window, from the repo folder (keep it open):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\qdrant-windows.ps1
+```
+
+It downloads the same version as `docker-compose.yml` to `$HOME\.qdrant\` the first time and listens on
+`localhost:6333`, so nothing else changes (`doctor`, `index`, `search` work as usual). Its vectors live in
+`$HOME\.qdrant\storage`, separate from the Docker volume: after switching, run `index` again.
 
 ## 5. First pipeline run (labelled set)
 
@@ -125,8 +163,34 @@ uv run agent-apunts search "què és el patró observer?"   # nearest chunks, an
 uv run agent-apunts search "TLB" --subject arquitectura_computadors
 ```
 
-Or all stages at once: `uv run agent-apunts ingest`. Every stage is incremental: re-running only processes
-new or changed work (`--force` redoes all), and re-indexing never duplicates points.
+Or all stages at once: `uv run agent-apunts ingest` (register → prune → extract → chunk → index). Every
+stage is incremental: re-running only processes new or changed work (`--force` redoes all), re-indexing
+never duplicates points, and moving a PDF between folders only updates its metadata in Qdrant.
+`prune` (also run by `ingest`) forgets PDFs you deleted or replaced; `prune --dry-run` lists them first.
+If a folder suddenly lost most of its PDFs (more than 5 and more than half), nothing is removed there
+until you confirm with `prune --force`: an empty folder mid-sync must not wipe hours of embeddings.
+
+```bash
+uv run agent-apunts images            # how much content hides in images (code screenshots, diagrams)
+```
+
+## 6. Answers and evaluation (week 4)
+
+```bash
+ollama pull qwen2.5:7b                # local LLM (free); on a CPU-only machine answers are slow
+uv run agent-apunts ask "Què diu el patró Creator?"          # answer + [n] citations, or abstains
+uv run agent-apunts ask "TLB" --subject arquitectura_computadors
+cp eval/golden.example.yaml eval/golden.yaml   # then write your own questions (eval/README.md)
+uv run agent-apunts eval --sweep      # hit@k, MRR, abstention; pick retrieval.min_score from the sweep
+uv run agent-apunts eval --hybrid     # same with keyword (BM25) fusion: keep whichever scores higher
+uv run agent-apunts eval --answers    # end to end with the LLM (best on the GTX 1080 PC)
+```
+Every `ask` is appended to `logs/queries.jsonl` (gitignored) with your user_id.
+
+```bash
+uv run agent-apunts detect --evaluate # accuracy of subject/doc_type auto-detection on your labelled PDFs
+uv run agent-apunts detect            # suggestions for PDFs dropped in apunts/ without folders
+```
 Everything goes to `data/` (gitignored: it is derived from copyrighted material).
 
 Optional, with Qdrant running: `QDRANT_TEST_URL=http://localhost:6333 uv run pytest tests/test_store_server.py`
@@ -145,7 +209,11 @@ tests the store against the real server in a throwaway collection.
 | `.env` saved as `.env.txt` (Notepad) | Rename it, or save with "All files (*.*)" as the type. Check with `dir /a` or `ls -a`. |
 | `failed to connect to the docker API ... dockerDesktopLinuxEngine` | Docker Desktop is not running: open it and wait until it says "Engine running". |
 | `cannot reach Ollama` / `ollama pull bge-m3` in `index` or `search` | Start Ollama (Windows: the Ollama app; Omarchy: `sudo systemctl start ollama`) and pull the model. |
-| `cannot reach Qdrant` | `docker compose up -d` (Windows: Docker Desktop must be running). |
+| `ask` is very slow on Omarchy | A 7B model on a CPU takes minutes. Use the GTX 1080 PC, or a smaller model in `settings.yaml` (`llm.model`, e.g. `qwen2.5:3b`). |
+| `cannot reach Qdrant` | `docker compose up -d` (Windows: Docker Desktop must be running), or `scripts\qdrant-windows.ps1` without Docker. |
+| Docker Desktop: `Virtualization is disabled in firmware` | Turn on virtualization in the BIOS/UEFI: Windows Settings → System → Recovery → Advanced startup → Restart now → Troubleshoot → Advanced options → UEFI Firmware Settings. The option is **SVM Mode** on AMD CPUs (MSI: OC → Advanced CPU Configuration; ASUS/ASRock: Advanced → CPU Configuration; Gigabyte: Tweaker → Advanced CPU Settings), **Intel VT-x** on Intel. Save (F10), reboot; Task Manager → Performance → CPU must say "Virtualization: Enabled". Board model: `Get-CimInstance Win32_BaseBoard`. Meanwhile: Qdrant without Docker (step 4). |
+| `ollama` not recognized / `winget upgrade Ollama.Ollama` finds nothing | Ollama isn't installed (setup run before 2026-10-08): re-run the setup script, or `winget install --id Ollama.Ollama -e`, then open a new terminal. |
+| `ollama ps` says `100% CPU` on a PC with a GPU | AMD: turn on Vulkan (step 4, "Is Ollama using the GPU?"). NVIDIA: update the driver. Split CPU/GPU: the model is too big for the GPU memory. |
 | `collection 'apunts' was built with ...` | The embedding model changed: set a new `qdrant.collection` in `settings.yaml` and run `index`. |
 | OneDrive (Omarchy) syncs nothing | After editing `sync_list`, run `onedrive --sync --resync`. |
 | uv: `Querying Python ... failed with exit status exit code: 0xc0e90002` (Windows 11) | **Smart App Control** blocks unsigned programs (uv's Python, and wheels like PyMuPDF/numpy). Either turn it off (Settings → Privacy & security → Windows Security → App & browser control → Smart App Control → Off; read Windows' warning: it may not be re-enabled without reinstalling) and run `uv python install 3.12 --reinstall`, or keep it on and work inside WSL2 (follow the Omarchy steps there). |

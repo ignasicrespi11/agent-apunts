@@ -58,3 +58,20 @@ def test_ollama_not_running_says_how_to_fix_it():
 def test_factory_uses_settings(settings):
     embedder = make_embedder(settings)
     assert embedder.model == "bge-m3" and embedder.dimension == 1024
+
+
+@pytest.mark.parametrize(
+    ("error", "message"),
+    [
+        (httpx.ReadTimeout, "took more than"),
+        (httpx.RemoteProtocolError, "may have crashed"),  # Ollama died mid-request
+        (httpx.ReadError, "may have crashed"),
+    ],
+)
+def test_slow_or_crashing_ollama_gives_a_message_not_a_traceback(error, message):
+    def fail(request):
+        raise error("boom", request=request)
+
+    embedder = OllamaEmbedder("http://ollama", "bge-m3", 4, 2, transport=httpx.MockTransport(fail))
+    with pytest.raises(EmbeddingError, match=message):
+        embedder.embed(["x"])

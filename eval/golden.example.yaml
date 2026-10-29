@@ -1,0 +1,42 @@
+# Example golden set: copy to golden.yaml and write your own (see eval/README.md).
+# Page numbers below come from `inspect slides_grasp` output and must be checked against the PDF.
+questions:
+  - id: ds-grasp-creator
+    question: "Quina classe ha de crear un objecte segons el patró Creator?"
+    language: ca
+    subject: disseny_software
+    tags: [definition]
+    expected:
+      - document: disseny_software/theory/slides_grasp.pdf
+        pages: [33, 34, 35]
+
+  - id: ds-grasp-low-coupling
+    question: "¿Por qué conviene tener bajo acoplamiento entre clases?"
+    language: es
+    subject: disseny_software
+    tags: [definition]
+    expected:
+      - document: disseny_software/theory/slides_grasp.pdf
+        pages: [40, 41, 42]
+
+  - id: ds-grasp-polymorphism-code
+    question: "How is a new payment type added without changing the Sale class?"
+    language: en
+    subject: disseny_software
+    tags: [code-image, procedure]
+    expected:
+      - document: disseny_software/theory/slides_grasp.pdf
+        pages: [54, 55, 56, 57, 58, 59, 60, 61, 62, 63]
+
+  - id: is-exam-2526
+    question: "Quines preguntes van sortir a l'examen final d'IS del 2025-26?"
+    language: ca
+    subject: informacio_i_seguretat
+    tags: [exam-exercise]
+    expected:
+      - document: informacio_i_seguretat/exams/IS2526-ExamenFinal.pdf  # any page counts
+
+  - id: none-worldcup
+    question: "Qui va guanyar el mundial de futbol de 2010?"
+    language: ca
+    answerable: false
