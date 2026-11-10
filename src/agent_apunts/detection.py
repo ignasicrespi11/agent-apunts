@@ -36,14 +36,16 @@ from agent_apunts.metadata import DocType, year_from_filename
 # Order matters: an "exam with exercises" is an exam.
 _DOC_TYPE_KEYWORDS: list[tuple[DocType, tuple[str, ...]]] = [
     (DocType.EXAMS, ("exam", "parcial", "final", "recupera", "midterm", "prova")),
-    (DocType.LABS, ("lab", "practica", "pract", "sessio de laboratori", "assignment")),
+    (DocType.LABS, ("lab", "practica", "pract", "prac", "sessio de laboratori", "assignment")),
     (DocType.EXERCISES, ("exercic", "ejercic", "exercise", "problem", "llista", "seminari")),
     (DocType.THEORY, ("tema", "teoria", "theory", "slides", "apunts", "lecture", "unit")),
 ]
 
 
 def _plain(text: str) -> str:
-    """Lowercase, accents removed, separators to spaces: 'Pràctica_2' -> 'practica 2'."""
+    """Lowercase, accents removed, separators to spaces: 'Pràctica_2' -> 'practica 2'.
+    CamelCase is split first ('SegonParcial' -> 'segon parcial'): real file names glue words."""
+    text = re.sub(r"(?<=[a-z])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])", " ", text)
     text = unicodedata.normalize("NFKD", text.lower())
     text = "".join(c for c in text if not unicodedata.combining(c))
     return re.sub(r"[^a-z0-9]+", " ", text)
@@ -53,7 +55,8 @@ def _keyword_type(text: str) -> DocType | None:
     words = _plain(text)
     for doc_type, keywords in _DOC_TYPE_KEYWORDS:
         for keyword in keywords:
-            if re.search(rf"\b{re.escape(keyword)}", words):
+            # "exam" is a prefix of "example"/"exemple" slides: those are not exams.
+            if re.search(rf"\b{re.escape(keyword)}(?!ple)", words):
                 return doc_type
     return None
 

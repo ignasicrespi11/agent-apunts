@@ -5,8 +5,11 @@ so the same functions can later be called from FastAPI (D9) without going throug
 """
 
 import json
+import time
+import traceback
 from collections import Counter
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 
 import typer
@@ -997,3 +1000,71 @@ def duplicates(
         f"{len(pairs)} pairs in {len(groups)} groups. Open a few: translation? solutions? "
         "same deck twice? This decides how D19 collapses them in search results."
     )
+
+
+@app.command()
+def report(
+    answers: bool = typer.Option(
+        True, "--answers/--no-answers", help="Also run the LLM steps (need a GPU to be quick)."
+    ),
+) -> None:
+    """Run the whole hands-on checklist unattended; save each step's output under data/runs/.
+
+    For leaving a machine working alone: a failing step is recorded and the next one still runs.
+    Files are written as UTF-8 by this command, so nothing depends on the terminal's encoding
+    (redirecting rich output with `>` fails on Windows' default code page)."""
+    global console
+    s = _settings()
+    golden = "eval/golden.yaml"
+
+    def run_eval(**options: bool) -> None:
+        defaults = {"sweep": False, "hybrid": False, "answers": False, "agent": False}
+        evaluate(
+            file=golden, k=5, filter_subject=False, show_failures=True, **{**defaults, **options}
+        )
+
+    steps: list[tuple[str, Callable[[], None]]] = [
+        ("doctor", run_doctor),
+        ("ingest", lambda: ingest(force=False)),
+        ("ingest-again", lambda: ingest(force=False)),  # must index 0 documents (idempotent)
+        ("images", lambda: images(top=15)),
+        ("detect-evaluate", lambda: detect(evaluate=True)),
+        ("duplicates", lambda: duplicates(min_similarity=None)),
+        ("eval-dense-sweep", lambda: run_eval(sweep=True)),
+        ("eval-hybrid", lambda: run_eval(hybrid=True)),
+    ]
+    if answers:
+        steps += [
+            ("eval-answers", lambda: run_eval(answers=True)),
+            ("eval-answers-agent", lambda: run_eval(answers=True, agent=True)),
+            ("doctor-after", run_doctor),  # `ollama memory`: did the models run on the GPU?
+        ]
+
+    out = s.paths.data_dir / "runs" / datetime.now().strftime("%Y%m%d-%H%M%S")
+    out.mkdir(parents=True, exist_ok=True)
+    screen, summary = console, []
+    for number, (name, step) in enumerate(steps, start=1):
+        screen.print(f"[{number}/{len(steps)}] {name} ...")
+        path = out / f"{number:02d}-{name}.txt"
+        start = time.perf_counter()
+        with path.open("w", encoding="utf-8") as f:
+            console = Console(file=f, width=120, force_terminal=False)
+            try:
+                step()
+                status = "ok"
+            except typer.Exit as e:
+                status = "ok" if not e.exit_code else f"FAILED (exit {e.exit_code})"
+            except Exception:  # noqa: BLE001 (unattended: record it and go on)
+                f.write(traceback.format_exc())
+                status = "FAILED (error, see file)"
+            finally:
+                console = screen
+        seconds = time.perf_counter() - start
+        summary.append(f"{number:02d} {name:<20} {status:<26} {seconds:8.1f} s")
+        screen.print(f"      {status}, {seconds:.0f} s")
+
+    combined = [f"agent-apunts report, {out.name}", *summary]
+    for path in sorted(out.glob("[0-9]*.txt")):
+        combined += ["", "=" * 100, path.name, "=" * 100, path.read_text(encoding="utf-8")]
+    (out / "report.txt").write_text("\n".join(combined), encoding="utf-8")
+    screen.print(f"Done. Attach this file to the next Claude session: {out / 'report.txt'}")

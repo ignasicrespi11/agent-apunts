@@ -411,3 +411,21 @@ def test_documents_titles_lists_page_titles(fake_services):
     assert result.exit_code == 0, result.output
     assert "disseny_software/theory/patrons.pdf (2 pages" in result.output
     assert "  p1: Patrons de disseny" in result.output
+
+
+def test_report_runs_every_step_and_survives_failures(fake_services):
+    from tests.pdf_factory import make_pdf
+
+    corpus = fake_services / "testing" / "apunts_testing"
+    make_pdf(corpus / "disseny_software" / "theory" / "patrons.pdf", ["slide", "a4"])
+    make_pdf(corpus / "informacio_i_seguretat" / "exams" / "e.pdf", ["a4"])
+    # No eval/golden.yaml: both eval steps fail, and the run must still finish.
+    result = runner.invoke(app, ["report", "--no-answers"])
+    assert result.exit_code == 0, result.output
+    (run,) = (fake_services / "data" / "runs").iterdir()
+    text = (run / "report.txt").read_text(encoding="utf-8")
+    assert "02 ingest" in text and "2 indexed" in text
+    assert "0 indexed (0 points), 2 up to date" in text  # the second ingest did nothing
+    assert "07 eval-dense-sweep     FAILED (exit 1)" in text
+    assert "subject correct" in text  # detect --evaluate ran after the failures' neighbours
+    assert len(list(run.glob("0*.txt"))) == 8

@@ -216,3 +216,16 @@ def test_leave_one_out_can_also_leave_out_near_duplicates():
     assert twins == {"b": {"b-twin"}, "b-twin": {"b"}}
     strict = det.evaluate_leave_one_out(labelled, v, {}, 0.0, twins)
     assert strict.subject_correct < loose.subject_correct
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected"),
+    [
+        ("IS2324-SegonParcial.pdf", DocType.EXAMS),  # CamelCase glued words
+        ("Second-middeltermExam-2223.pdf", DocType.EXAMS),
+        ("example_interest.pdf", DocType.THEORY),  # "exam" inside "example" is not an exam
+        ("AC26-PRAC1-soluciones.pdf", DocType.LABS),
+    ],
+)
+def test_doc_type_from_real_file_name_shapes(filename, expected):
+    assert det.guess_doc_type(filename, "")[0] is expected

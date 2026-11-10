@@ -10,6 +10,19 @@ command later resumes where it stopped. Before closing the laptop: Ctrl+C, then 
 Branch everywhere: `claude/vibrant-goodall-5rmyu2` = PR #3 + two proposed features that are off unless you ask for
 them (D38 agent: `ask --agent`; D39 OCR: `extraction.ocr.enabled`). They go in a second PR after #3 is merged.
 
+## 0. One command that does it all (GTX 1080 PC, leave it running)
+
+```powershell
+cd $HOME\code\agent-apunts
+git fetch; git checkout claude/vibrant-goodall-5rmyu2; git pull; uv sync
+docker compose up -d
+ollama pull bge-m3; ollama pull qwen2.5:7b
+uv run agent-apunts report            # add:  ; shutdown /s /t 300   to power off afterwards
+```
+It runs doctor, ingest (twice), images, detect, duplicates, eval (dense, hybrid, answers, agent) and writes
+`data\runs\<date>\report.txt`. 📋 Attach that one file to the next Claude session. Section 1 below is the
+same thing step by step, for when something fails.
+
 ## 1. GTX 1080 PC (everything installed) — do this first
 
 ```powershell
